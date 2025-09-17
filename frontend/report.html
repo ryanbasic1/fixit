@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Report Issue - Civic AI</title>
+    <!-- Preload Bootstrap Icons for better performance -->
+    <link
+      rel="preload"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/fonts/bootstrap-icons.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Bootstrap Icons -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+    <style>
+      .complaint-card {
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 15px 0;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease;
+      }
+      .complaint-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+      .preview-image {
+        width: 100%;
+        max-height: 300px;
+        border-radius: 8px;
+        margin: 12px 0;
+        object-fit: cover;
+      }
+      .camera-feed {
+        width: 100%;
+        max-width: 400px;
+        border-radius: 8px;
+        margin: 10px 0;
+      }
+      .complaint-metadata {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 8px 0;
+      }
+      .complaint-description {
+        font-size: 1.1em;
+        margin: 12px 0;
+        color: #333;
+      }
+      .badge.priority-high {
+        background-color: #dc3545 !important;
+        color: white;
+      }
+      .badge.priority-medium {
+        background-color: #ffc107 !important;
+        color: black;
+      }
+      .badge.priority-low {
+        background-color: #198754 !important;
+        color: white;
+      }
+      .category-badge {
+        font-size: 0.9em;
+        padding: 6px 12px;
+      }
+      .alert-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1050;
+      }
+      .voice-input-btn {
+        border-color: #6c757d;
+        transition: all 0.3s ease;
+      }
+      .voice-input-btn:hover {
+        background-color: #f8f9fa;
+        border-color: #0d6efd;
+        color: #0d6efd;
+      }
+      .voice-input-btn.recording {
+        background-color: #dc3545;
+        border-color: #dc3545;
+        color: white;
+        animation: pulse 1.5s infinite;
+      }
+      .voice-input-btn.processing {
+        background-color: #ffc107;
+        border-color: #ffc107;
+        color: #000;
+      }
+      @keyframes pulse {
+        0% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-light">
+    <!-- Alert Container -->
+    <div id="alertContainer" class="alert-container"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+      <div class="container">
+        <a class="navbar-brand" href="index.html">🏛️ Civic AI</a>
+        <div class="navbar-nav ms-auto">
+          <a class="nav-link active" href="report.html">📝 Report Issue</a>
+          <a class="nav-link" href="community.html">🌍 Community</a>
+          <a class="nav-link" href="myreports.html">📋 My Reports</a>
+
+          <!-- Profile Section - Will be updated by JavaScript -->
+          <div id="navProfileSection" class="d-flex align-items-center">
+            <!-- When not logged in -->
+            <div id="navLoginButtons" class="d-flex gap-2">
+              <button
+                class="btn btn-outline-light btn-sm"
+                onclick="showLoginModal()"
+              >
+                Login
+              </button>
+              <button
+                class="btn btn-light btn-sm"
+                onclick="showRegisterModal()"
+              >
+                Register
+              </button>
+            </div>
+
+            <!-- When logged in -->
+            <div id="navUserInfo" class="d-none dropdown">
+              <button
+                class="btn btn-outline-light dropdown-toggle"
+                type="button"
+                data-bs-toggle="dropdown"
+              >
+                <i class="bi bi-person-circle"></i>
+                <span id="navUsername">User</span>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                  <a class="dropdown-item" href="profile.html"
+                    ><i class="bi bi-person"></i> Profile</a
+                  >
+                </li>
+                <li><hr class="dropdown-divider" /></li>
+                <li>
+                  <a class="dropdown-item" href="#" onclick="logout()"
+                    ><i class="bi bi-box-arrow-right"></i> Logout</a
+                  >
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container mt-4">
+      <div class="row">
+        <div class="col-md-8 offset-md-2">
+          <h2 class="mb-4">🚀 Report a Civic Issue</h2>
+
+          <!-- File Complaint Section -->
+          <div class="card mb-4">
+            <div class="card-body">
+              <h3>Upload or Capture Image</h3>
+              <form id="complaintForm" onsubmit="return false;">
+                <div class="mb-3">
+                  <input
+                    type="file"
+                    class="form-control"
+                    id="imageInput"
+                    accept="image/*"
+                  />
+                </div>
+                <div id="cameraSection" class="mb-3">
+                  <video
+                    id="video"
+                    autoplay
+                    playsinline
+                    class="camera-feed d-none"
+                  ></video>
+                  <button
+                    type="button"
+                    class="btn btn-secondary"
+                    id="toggleCameraBtn"
+                  >
+                    📸 Use Camera
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-primary d-none"
+                    id="captureBtn"
+                  >
+                    Take Photo
+                  </button>
+                  <canvas id="canvas" style="display: none"></canvas>
+                </div>
+                <img id="preview" class="preview-image d-none" />
+                <div class="mt-3">
+                  <button type="button" class="btn btn-primary" id="analyzeBtn">
+                    🔍 Analyze Issue
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- AI Analysis Preview Section -->
+          <div id="analysisSection" class="card mb-4 d-none">
+            <div class="card-body">
+              <h4>🤖 AI Analysis Results</h4>
+              <div id="analysisResult" class="complaint-card">
+                <div class="d-flex justify-content-between mb-3">
+                  <span
+                    class="badge bg-primary"
+                    id="analyzedCategoryBadge"
+                  ></span>
+                  <span
+                    class="badge bg-secondary"
+                    id="analyzedConfidenceBadge"
+                  ></span>
+                </div>
+
+                <div class="mb-3">
+                  <strong>Detected Issue:</strong>
+                  <p id="analyzedIssueText" class="mt-1 mb-3"></p>
+                </div>
+
+                <div class="mb-3">
+                  <strong>AI Generated Description:</strong>
+                  <div class="input-group mt-1">
+                    <textarea
+                      id="editableDescription"
+                      class="form-control"
+                      rows="3"
+                      placeholder="Edit or speak your description..."
+                    ></textarea>
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      id="voiceInputBtn"
+                      title="Click to speak your description"
+                    >
+                      <i class="bi bi-mic"></i>
+                    </button>
+                  </div>
+                  <small class="text-muted">
+                    You can edit this description or use the microphone to speak
+                    it
+                  </small>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center">
+                  <span id="analyzedPriorityBadge"></span>
+                  <div>
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary me-2"
+                      onclick="resetAnalysis()"
+                    >
+                      ↩️ Try Different Image
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-success"
+                      id="confirmSubmitBtn"
+                    >
+                      ✅ Submit This Report
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Results Section -->
+          <div id="resultSection" class="card mb-4 d-none">
+            <div class="card-body">
+              <h4>Report Submitted Successfully!</h4>
+              <div id="result" class="complaint-card">
+                <div class="d-flex justify-content-between">
+                  <span class="badge bg-primary" id="categoryBadge"></span>
+                  <span class="badge bg-secondary" id="confidenceBadge"></span>
+                </div>
+                <p class="mt-2" id="descriptionText"></p>
+                <div class="d-flex justify-content-between">
+                  <span class="badge bg-info" id="statusBadge"></span>
+                  <span id="priorityBadge"></span>
+                </div>
+                <div class="mt-3">
+                  <a href="myreports.html" class="btn btn-primary"
+                    >📋 View My Reports</a
+                  >
+                  <button
+                    type="button"
+                    class="btn btn-outline-primary"
+                    onclick="window.location.reload()"
+                  >
+                    📝 Report Another Issue
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Login</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <input
+                type="text"
+                class="form-control"
+                id="loginUsername"
+                placeholder="Username"
+              />
+            </div>
+            <div class="mb-3">
+              <input
+                type="password"
+                class="form-control"
+                id="loginPassword"
+                placeholder="Password"
+              />
+            </div>
+            <div id="loginMessage"></div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+            <button type="button" class="btn btn-primary" onclick="login()">
+              Login
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div class="modal fade" id="registerModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Register</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <input
+                type="text"
+                class="form-control"
+                id="registerUsername"
+                placeholder="Username"
+              />
+            </div>
+            <div class="mb-3">
+              <input
+                type="password"
+                class="form-control"
+                id="registerPassword"
+                placeholder="Password"
+              />
+            </div>
+            <div id="registerMessage"></div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+            <button type="button" class="btn btn-primary" onclick="register()">
+              Register
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+    <script src="report.js"></script>
+  </body>
+</html>

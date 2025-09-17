@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome to Civic AI - Smart Civic Issue Reporting</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        margin: 0;
+      }
+
+      .welcome-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+      }
+
+      .welcome-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 24px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        max-width: 900px;
+        width: 100%;
+        overflow: hidden;
+      }
+
+      .hero-section {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        color: white;
+        padding: 3rem 2rem;
+        text-align: center;
+      }
+
+      .hero-section h1 {
+        font-size: 3rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .hero-section p {
+        font-size: 1.2rem;
+        opacity: 0.95;
+        margin-bottom: 2rem;
+      }
+
+      .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 2rem;
+        padding: 3rem 2rem;
+      }
+
+      .feature-card {
+        text-align: center;
+        padding: 1.5rem;
+        border-radius: 16px;
+        background: rgba(79, 70, 229, 0.05);
+        border: 1px solid rgba(79, 70, 229, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+
+      .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(79, 70, 229, 0.15);
+      }
+
+      .feature-icon {
+        font-size: 3rem;
+        color: #4f46e5;
+        margin-bottom: 1rem;
+      }
+
+      .feature-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+        color: #1f2937;
+      }
+
+      .feature-description {
+        color: #6b7280;
+        line-height: 1.6;
+      }
+
+      .cta-section {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        padding: 3rem 2rem;
+        text-align: center;
+      }
+
+      .cta-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 1rem;
+      }
+
+      .cta-subtitle {
+        color: #6b7280;
+        font-size: 1.1rem;
+        margin-bottom: 2.5rem;
+      }
+
+      .btn-get-started {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        border: none;
+        padding: 1rem 3rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 50px;
+        color: white;
+        box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+        transition: all 0.3s ease;
+      }
+
+      .btn-get-started:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+        color: white;
+      }
+
+      .stats-section {
+        padding: 2rem;
+        background: rgba(79, 70, 229, 0.05);
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 2rem;
+        text-align: center;
+      }
+
+      .stat-item h3 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #4f46e5;
+        margin-bottom: 0.5rem;
+      }
+
+      .stat-item p {
+        color: #6b7280;
+        font-weight: 500;
+      }
+
+      @media (max-width: 768px) {
+        .hero-section h1 {
+          font-size: 2.2rem;
+        }
+
+        .hero-section p {
+          font-size: 1.1rem;
+        }
+
+        .features-grid {
+          padding: 2rem 1rem;
+        }
+
+        .cta-section {
+          padding: 2rem 1rem;
+        }
+      }
+
+      .floating-elements {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        overflow: hidden;
+      }
+
+      .floating-element {
+        position: absolute;
+        opacity: 0.1;
+        animation: float 6s ease-in-out infinite;
+      }
+
+      .floating-element:nth-child(1) {
+        top: 10%;
+        left: 10%;
+        animation-delay: 0s;
+      }
+
+      .floating-element:nth-child(2) {
+        top: 20%;
+        right: 15%;
+        animation-delay: 2s;
+      }
+
+      .floating-element:nth-child(3) {
+        bottom: 20%;
+        left: 20%;
+        animation-delay: 4s;
+      }
+
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0px) rotate(0deg);
+        }
+        50% {
+          transform: translateY(-20px) rotate(5deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="welcome-container">
+      <div class="welcome-card position-relative">
+        <!-- Floating background elements -->
+        <div class="floating-elements">
+          <i class="bi bi-camera floating-element" style="font-size: 2rem"></i>
+          <i class="bi bi-robot floating-element" style="font-size: 2.5rem"></i>
+          <i class="bi bi-people floating-element" style="font-size: 2rem"></i>
+        </div>
+
+        <!-- Hero Section -->
+        <div class="hero-section">
+          <h1>🏛️ Civic AI</h1>
+          <p>
+            Smart AI-Powered Civic Issue Reporting Platform<br />
+            Empowering communities through intelligent problem-solving
+          </p>
+          <div class="d-flex gap-3 justify-content-center flex-wrap">
+            <span class="badge bg-light text-dark px-3 py-2 fs-6">
+              <i class="bi bi-camera"></i> Photo Recognition
+            </span>
+            <span class="badge bg-light text-dark px-3 py-2 fs-6">
+              <i class="bi bi-robot"></i> AI Analysis
+            </span>
+            <span class="badge bg-light text-dark px-3 py-2 fs-6">
+              <i class="bi bi-people"></i> Community Driven
+            </span>
+          </div>
+        </div>
+
+        <!-- Features Section -->
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon">
+              <i class="bi bi-camera-fill"></i>
+            </div>
+            <h3 class="feature-title">Smart Photo Capture</h3>
+            <p class="feature-description">
+              Simply take a photo of any civic issue - from potholes to broken
+              streetlights. Our AI instantly recognizes the problem type.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">
+              <i class="bi bi-robot"></i>
+            </div>
+            <h3 class="feature-title">AI-Powered Analysis</h3>
+            <p class="feature-description">
+              Advanced CLIP-based AI automatically categorizes issues, suggests
+              priority levels, and provides detailed problem descriptions.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">
+              <i class="bi bi-mic-fill"></i>
+            </div>
+            <h3 class="feature-title">Voice Input</h3>
+            <p class="feature-description">
+              Add voice descriptions to your reports for additional context.
+              Perfect for accessibility and detailed reporting.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">
+              <i class="bi bi-people-fill"></i>
+            </div>
+            <h3 class="feature-title">Community Engagement</h3>
+            <p class="feature-description">
+              View and vote on community reports. See what issues matter most to
+              your neighbors and join the civic conversation.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">
+              <i class="bi bi-graph-up"></i>
+            </div>
+            <h3 class="feature-title">Progress Tracking</h3>
+            <p class="feature-description">
+              Track the status of your reports from submission to resolution.
+              Stay informed about civic improvements in your area.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">
+              <i class="bi bi-shield-check"></i>
+            </div>
+            <h3 class="feature-title">Secure & Private</h3>
+            <p class="feature-description">
+              Your data is protected with modern security practices. Report
+              issues confidently and anonymously if preferred.
+            </p>
+          </div>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="stats-section">
+          <div class="stats-grid">
+            <div class="stat-item">
+              <h3>98%</h3>
+              <p>AI Accuracy Rate</p>
+            </div>
+            <div class="stat-item">
+              <h3>< 5s</h3>
+              <p>Analysis Time</p>
+            </div>
+            <div class="stat-item">
+              <h3>24/7</h3>
+              <p>Platform Availability</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- CTA Section -->
+        <div class="cta-section">
+          <h2 class="cta-title">Ready to Make a Difference?</h2>
+          <p class="cta-subtitle">
+            Join thousands of citizens making their communities better, one
+            report at a time.
+          </p>
+          <button class="btn btn-get-started" onclick="enterApp()">
+            <i class="bi bi-arrow-right-circle"></i> Enter Civic AI Platform
+          </button>
+          <div class="mt-3">
+            <small class="text-muted">
+              New users can start reporting immediately • No complex setup
+              required
+            </small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+      function enterApp() {
+        // Set a flag that user has seen the welcome page
+        localStorage.setItem("hasSeenWelcome", "true");
+
+        // Redirect to the main app
+        window.location.href = "index.html";
+      }
+
+      // Add some interactive animations
+      document.addEventListener("DOMContentLoaded", () => {
+        // Animate feature cards on scroll
+        const observerOptions = {
+          threshold: 0.1,
+          rootMargin: "0px 0px -50px 0px",
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.style.animation = "slideInUp 0.6s ease forwards";
+            }
+          });
+        }, observerOptions);
+
+        document.querySelectorAll(".feature-card").forEach((card) => {
+          card.style.opacity = "0";
+          card.style.transform = "translateY(30px)";
+          observer.observe(card);
+        });
+
+        // Add CSS animation
+        const style = document.createElement("style");
+        style.textContent = `
+          @keyframes slideInUp {
+            from {
+              opacity: 0;
+              transform: translateY(30px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+        `;
+        document.head.appendChild(style);
+      });
+    </script>
+  </body>
+</html>

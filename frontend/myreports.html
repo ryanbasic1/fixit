@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Reports - Civic AI</title>
+    <!-- Preload Bootstrap Icons for better performance -->
+    <link
+      rel="preload"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/fonts/bootstrap-icons.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Bootstrap Icons -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+    <style>
+      .complaint-card {
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 15px 0;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease;
+      }
+      .complaint-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+      .preview-image {
+        width: 100%;
+        max-height: 300px;
+        border-radius: 8px;
+        margin: 12px 0;
+        object-fit: cover;
+      }
+      .complaint-metadata {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 8px 0;
+      }
+      .complaint-description {
+        font-size: 1.1em;
+        margin: 12px 0;
+        color: #333;
+      }
+      .badge.priority-high {
+        background-color: #dc3545 !important;
+        color: white;
+      }
+      .badge.priority-medium {
+        background-color: #ffc107 !important;
+        color: black;
+      }
+      .badge.priority-low {
+        background-color: #198754 !important;
+        color: white;
+      }
+      .category-badge {
+        font-size: 0.9em;
+        padding: 6px 12px;
+      }
+      .alert-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1050;
+      }
+      .stats-card {
+        text-align: center;
+        border: none;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+      .stats-card h3 {
+        margin: 0;
+        font-weight: bold;
+      }
+      .stats-card p {
+        margin: 0;
+        opacity: 0.9;
+      }
+    </style>
+  </head>
+  <body class="bg-light">
+    <!-- Alert Container -->
+    <div id="alertContainer" class="alert-container"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+      <div class="container">
+        <a class="navbar-brand" href="index.html">🏛️ Civic AI</a>
+        <div class="navbar-nav ms-auto">
+          <a class="nav-link" href="report.html">📝 Report Issue</a>
+          <a class="nav-link" href="community.html">🌍 Community</a>
+          <a class="nav-link active" href="myreports.html">📋 My Reports</a>
+
+          <!-- Profile Section - Will be updated by JavaScript -->
+          <div id="navProfileSection" class="d-flex align-items-center">
+            <!-- When not logged in -->
+            <div id="navLoginButtons" class="d-flex gap-2">
+              <button
+                class="btn btn-outline-light btn-sm"
+                onclick="showLoginModal()"
+              >
+                Login
+              </button>
+              <button
+                class="btn btn-light btn-sm"
+                onclick="showRegisterModal()"
+              >
+                Register
+              </button>
+            </div>
+
+            <!-- When logged in -->
+            <div id="navUserInfo" class="d-none dropdown">
+              <button
+                class="btn btn-outline-light dropdown-toggle"
+                type="button"
+                data-bs-toggle="dropdown"
+              >
+                <i class="bi bi-person-circle"></i>
+                <span id="navUsername">User</span>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                  <a class="dropdown-item" href="profile.html"
+                    ><i class="bi bi-person"></i> Profile</a
+                  >
+                </li>
+                <li><hr class="dropdown-divider" /></li>
+                <li>
+                  <a class="dropdown-item" href="#" onclick="logout()"
+                    ><i class="bi bi-box-arrow-right"></i> Logout</a
+                  >
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container mt-4">
+      <div class="row">
+        <div class="col-md-10 offset-md-1">
+          <h2 class="mb-4">📋 My Reports</h2>
+
+          <!-- User Stats -->
+          <div class="row mb-4">
+            <div class="col-md-3">
+              <div class="card stats-card">
+                <div class="card-body">
+                  <h3 id="myTotalReports">-</h3>
+                  <p>Total Reports</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card stats-card">
+                <div class="card-body">
+                  <h3 id="myPendingReports">-</h3>
+                  <p>Pending</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card stats-card">
+                <div class="card-body">
+                  <h3 id="myInProgressReports">-</h3>
+                  <p>In Progress</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card stats-card">
+                <div class="card-body">
+                  <h3 id="myResolvedReports">-</h3>
+                  <p>Resolved</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter Controls -->
+          <div class="card mb-4">
+            <div class="card-body">
+              <div class="row align-items-center">
+                <div class="col-md-6">
+                  <h5 class="mb-0">Filter My Reports</h5>
+                </div>
+                <div class="col-md-6">
+                  <div class="d-flex gap-2">
+                    <select id="statusFilter" class="form-select">
+                      <option value="">All Status</option>
+                      <option value="pending">Pending</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="resolved">Resolved</option>
+                    </select>
+                    <select id="categoryFilterMy" class="form-select">
+                      <option value="">All Categories</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- My Reports List -->
+          <div class="card">
+            <div class="card-body">
+              <div
+                class="d-flex justify-content-between align-items-center mb-3"
+              >
+                <h4>Your Submissions</h4>
+                <a href="report.html" class="btn btn-primary">
+                  <i class="bi bi-plus-circle"></i> New Report
+                </a>
+              </div>
+              <div id="complaintsList">
+                <!-- Dynamic content loaded here -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty State -->
+          <div id="emptyState" class="text-center py-5 d-none">
+            <div class="card">
+              <div class="card-body">
+                <i class="bi bi-inbox display-1 text-muted"></i>
+                <h4>No Reports Yet</h4>
+                <p class="text-muted">
+                  You haven't submitted any civic issue reports yet.
+                </p>
+                <a href="report.html" class="btn btn-primary">
+                  📝 Submit Your First Report
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Login</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <input
+                type="text"
+                class="form-control"
+                id="loginUsername"
+                placeholder="Username"
+              />
+            </div>
+            <div class="mb-3">
+              <input
+                type="password"
+                class="form-control"
+                id="loginPassword"
+                placeholder="Password"
+              />
+            </div>
+            <div id="loginMessage"></div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+            <button type="button" class="btn btn-primary" onclick="login()">
+              Login
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div class="modal fade" id="registerModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Register</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <input
+                type="text"
+                class="form-control"
+                id="registerUsername"
+                placeholder="Username"
+              />
+            </div>
+            <div class="mb-3">
+              <input
+                type="password"
+                class="form-control"
+                id="registerPassword"
+                placeholder="Password"
+              />
+            </div>
+            <div id="registerMessage"></div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+            <button type="button" class="btn btn-primary" onclick="register()">
+              Register
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+    <script src="myreports.js"></script>
+  </body>
+</html>

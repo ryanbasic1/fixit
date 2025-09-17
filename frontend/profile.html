@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profile - Civic AI</title>
+    <!-- Preload Bootstrap Icons for better performance -->
+    <link
+      rel="preload"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/fonts/bootstrap-icons.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Bootstrap Icons -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+    <style>
+      .alert-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1050;
+      }
+      .profile-card {
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      .profile-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px 12px 0 0;
+      }
+      .avatar {
+        width: 80px;
+        height: 80px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        margin: 0 auto 1rem;
+      }
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin: 2rem 0;
+      }
+      .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        border-left: 4px solid #007bff;
+      }
+      .stat-card h3 {
+        color: #007bff;
+        margin-bottom: 0.5rem;
+      }
+      .activity-item {
+        padding: 1rem;
+        border-left: 3px solid #007bff;
+        margin-bottom: 1rem;
+        background: white;
+        border-radius: 0 8px 8px 0;
+      }
+      .login-prompt {
+        text-align: center;
+        padding: 3rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+    </style>
+  </head>
+  <body class="bg-light">
+    <!-- Alert Container -->
+    <div id="alertContainer" class="alert-container"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+      <div class="container">
+        <a class="navbar-brand" href="index.html">🏛️ Civic AI</a>
+        <div class="navbar-nav ms-auto">
+          <a class="nav-link" href="report.html">📝 Report Issue</a>
+          <a class="nav-link" href="community.html">🌍 Community</a>
+          <a class="nav-link" href="myreports.html">📋 My Reports</a>
+
+          <!-- Profile Section - Will be updated by JavaScript -->
+          <div id="navProfileSection" class="d-flex align-items-center">
+            <!-- When not logged in -->
+            <div id="navLoginButtons" class="d-flex gap-2">
+              <button
+                class="btn btn-outline-light btn-sm"
+                onclick="showLoginModal()"
+              >
+                Login
+              </button>
+              <button
+                class="btn btn-light btn-sm"
+                onclick="showRegisterModal()"
+              >
+                Register
+              </button>
+            </div>
+
+            <!-- When logged in -->
+            <div id="navUserInfo" class="d-none dropdown">
+              <button
+                class="btn btn-outline-light dropdown-toggle"
+                type="button"
+                data-bs-toggle="dropdown"
+              >
+                <i class="bi bi-person-circle"></i>
+                <span id="navUsername">User</span>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                  <a class="dropdown-item active" href="profile.html"
+                    ><i class="bi bi-person"></i> Profile</a
+                  >
+                </li>
+                <li><hr class="dropdown-divider" /></li>
+                <li>
+                  <a class="dropdown-item" href="#" onclick="logout()"
+                    ><i class="bi bi-box-arrow-right"></i> Logout</a
+                  >
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container mt-4">
+      <div class="row">
+        <div class="col-md-8 offset-md-2">
+          <!-- Not Logged In State -->
+          <div id="loginPrompt" class="login-prompt">
+            <i class="bi bi-person-circle display-1 text-muted mb-3"></i>
+            <h2>Welcome to Civic AI</h2>
+            <p class="text-muted mb-4">
+              Please login or register to access your profile and start
+              reporting civic issues.
+            </p>
+            <div class="d-flex gap-2 justify-content-center">
+              <button class="btn btn-primary btn-lg" onclick="showLoginModal()">
+                <i class="bi bi-box-arrow-in-right"></i> Login
+              </button>
+              <button
+                class="btn btn-outline-primary btn-lg"
+                onclick="showRegisterModal()"
+              >
+                <i class="bi bi-person-plus"></i> Register
+              </button>
+            </div>
+          </div>
+
+          <!-- Logged In State -->
+          <div id="profileContent" class="d-none">
+            <!-- Profile Header -->
+            <div class="card profile-card mb-4">
+              <div class="profile-header p-4">
+                <div class="text-center">
+                  <div class="avatar">
+                    <i class="bi bi-person-fill"></i>
+                  </div>
+                  <h3 id="userName">User Name</h3>
+                  <p id="userEmail">user@example.com</p>
+                  <small
+                    >Member since
+                    <span id="memberSince">January 2024</span></small
+                  >
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                  <h5>Account Settings</h5>
+                  <button class="btn btn-outline-danger" onclick="logout()">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Stats Dashboard -->
+            <div class="stats-grid">
+              <div class="stat-card">
+                <h3 id="totalSubmissions">0</h3>
+                <p>Total Reports</p>
+                <small class="text-muted">Issues submitted</small>
+              </div>
+              <div class="stat-card">
+                <h3 id="resolvedIssues">0</h3>
+                <p>Resolved</p>
+                <small class="text-muted">Issues fixed</small>
+              </div>
+              <div class="stat-card">
+                <h3 id="communityVotes">0</h3>
+                <p>Community Impact</p>
+                <small class="text-muted">Votes received</small>
+              </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card">
+              <div class="card-body">
+                <h5 class="card-title">
+                  <i class="bi bi-clock-history"></i> Recent Activity
+                </h5>
+                <div id="recentActivity">
+                  <!-- Dynamic content loaded here -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Account Management -->
+            <div class="card mt-4">
+              <div class="card-body">
+                <h5 class="card-title">
+                  <i class="bi bi-gear"></i> Account Management
+                </h5>
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="list-group list-group-flush">
+                      <a
+                        href="myreports.html"
+                        class="list-group-item list-group-item-action"
+                      >
+                        <i class="bi bi-file-text"></i> View My Reports
+                      </a>
+                      <a
+                        href="community.html"
+                        class="list-group-item list-group-item-action"
+                      >
+                        <i class="bi bi-people"></i> Community Dashboard
+                      </a>
+                      <a
+                        href="report.html"
+                        class="list-group-item list-group-item-action"
+                      >
+                        <i class="bi bi-plus-circle"></i> Report New Issue
+                      </a>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="list-group list-group-flush">
+                      <button
+                        class="list-group-item list-group-item-action"
+                        onclick="showChangePasswordModal()"
+                      >
+                        <i class="bi bi-lock"></i> Change Password
+                      </button>
+                      <button
+                        class="list-group-item list-group-item-action"
+                        onclick="showPreferencesModal()"
+                      >
+                        <i class="bi bi-sliders"></i> Notification Settings
+                      </button>
+                      <button
+                        class="list-group-item list-group-item-action text-danger"
+                        onclick="confirmDeleteAccount()"
+                      >
+                        <i class="bi bi-trash"></i> Delete Account
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Login</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <input
+                type="text"
+                class="form-control"
+                id="loginUsername"
+                placeholder="Username"
+              />
+            </div>
+            <div class="mb-3">
+              <input
+                type="password"
+                class="form-control"
+                id="loginPassword"
+                placeholder="Password"
+              />
+            </div>
+            <div id="loginMessage"></div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+            <button type="button" class="btn btn-primary" onclick="login()">
+              Login
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div class="modal fade" id="registerModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Register</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <input
+                type="text"
+                class="form-control"
+                id="registerUsername"
+                placeholder="Username"
+              />
+            </div>
+            <div class="mb-3">
+              <input
+                type="password"
+                class="form-control"
+                id="registerPassword"
+                placeholder="Password"
+              />
+            </div>
+            <div id="registerMessage"></div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+            <button type="button" class="btn btn-primary" onclick="register()">
+              Register
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div class="modal fade" id="changePasswordModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Change Password</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <input
+                type="password"
+                class="form-control"
+                id="currentPassword"
+                placeholder="Current Password"
+              />
+            </div>
+            <div class="mb-3">
+              <input
+                type="password"
+                class="form-control"
+                id="newPassword"
+                placeholder="New Password"
+              />
+            </div>
+            <div class="mb-3">
+              <input
+                type="password"
+                class="form-control"
+                id="confirmPassword"
+                placeholder="Confirm New Password"
+              />
+            </div>
+            <div id="changePasswordMessage"></div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              onclick="changePassword()"
+            >
+              Update Password
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preferences Modal -->
+    <div class="modal fade" id="preferencesModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Notification Settings</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div class="form-check mb-3">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="emailNotifications"
+                checked
+              />
+              <label class="form-check-label" for="emailNotifications">
+                Email notifications for status updates
+              </label>
+            </div>
+            <div class="form-check mb-3">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="communityUpdates"
+                checked
+              />
+              <label class="form-check-label" for="communityUpdates">
+                Community activity updates
+              </label>
+            </div>
+            <div class="form-check mb-3">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="marketingEmails"
+              />
+              <label class="form-check-label" for="marketingEmails">
+                Newsletter and tips
+              </label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              onclick="savePreferences()"
+            >
+              Save Settings
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+    <script src="dashboard.js"></script>
+
+    <script>
+      // Page-specific functionality for Profile page
+      document.addEventListener("DOMContentLoaded", function () {
+        // Check if this is a first-time user
+        const hasSeenWelcome = localStorage.getItem("hasSeenWelcome");
+        if (!hasSeenWelcome) {
+          window.location.href = "welcome.html";
+          return;
+        }
+
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+          // User not logged in, show login form
+          document.querySelector(".row").innerHTML = `
+            <div class="col-md-6 offset-md-3">
+              <div class="card">
+                <div class="card-body text-center">
+                  <h2>👤 Welcome to Civic AI</h2>
+                  <p class="mb-4">Please log in or create an account to manage your profile</p>
+                  
+                  <div class="d-grid gap-2">
+                    <button class="btn btn-primary btn-lg" onclick="showLoginModal()">
+                      <i class="bi bi-box-arrow-in-right"></i> Login
+                    </button>
+                    <button class="btn btn-outline-primary btn-lg" onclick="showRegisterModal()">
+                      <i class="bi bi-person-plus"></i> Create Account
+                    </button>
+                  </div>
+                  
+                  <div class="mt-4">
+                    <a href="index.html" class="btn btn-outline-secondary">
+                      <i class="bi bi-arrow-left"></i> Back to Home
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+          return;
+        }
+
+        // User is logged in, load profile data
+        loadUserProfile();
+        loadUserStats();
+      });
+
+      async function loadUserProfile() {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        try {
+          // For now, we'll show basic info since the backend doesn't have a user profile endpoint
+          // In a real app, you'd fetch from /auth/profile or similar
+          const username = localStorage.getItem("username") || "User";
+          document.getElementById("userName").textContent = username;
+          document.getElementById("userEmail").textContent =
+            username + "@civic.ai"; // Mock email
+          document.getElementById("joinDate").textContent =
+            new Date().toLocaleDateString();
+        } catch (error) {
+          console.error("Error loading profile:", error);
+        }
+      }
+
+      async function loadUserStats() {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        try {
+          const response = await fetch("http://localhost:8000/complaints/my", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            credentials: "include",
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const complaints = data.complaints || [];
+
+            const totalReports = complaints.length;
+            const pendingReports = complaints.filter(
+              (c) => c.status === "pending"
+            ).length;
+            const resolvedReports = complaints.filter(
+              (c) => c.status === "resolved"
+            ).length;
+            const totalVotes = complaints.reduce(
+              (sum, c) => sum + (c.vote_count || 0),
+              0
+            );
+
+            document.getElementById("totalReports").textContent = totalReports;
+            document.getElementById("pendingReports").textContent =
+              pendingReports;
+            document.getElementById("resolvedReports").textContent =
+              resolvedReports;
+            document.getElementById("totalVotes").textContent = totalVotes;
+          }
+        } catch (error) {
+          console.error("Error loading user stats:", error);
+        }
+      }
+
+      // Additional profile-specific functions
+      function showChangePasswordModal() {
+        $("#changePasswordModal").modal("show");
+      }
+
+      function showPreferencesModal() {
+        $("#preferencesModal").modal("show");
+      }
+
+      function confirmDeleteAccount() {
+        if (
+          confirm(
+            "Are you sure you want to delete your account? This action cannot be undone."
+          )
+        ) {
+          // Implement account deletion logic
+          alert("Account deletion feature will be implemented.");
+        }
+      }
+
+      function changePassword() {
+        // Implement password change logic
+        alert("Password change feature will be implemented.");
+        $("#changePasswordModal").modal("hide");
+      }
+
+      function savePreferences() {
+        // Implement preferences save logic
+        alert("Settings saved successfully!");
+        $("#preferencesModal").modal("hide");
+      }
+    </script>
+  </body>
+</html>
