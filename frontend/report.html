@@ -126,6 +126,7 @@
           <a class="nav-link active" href="report.html">📝 Report Issue</a>
           <a class="nav-link" href="community.html">🌍 Community</a>
           <a class="nav-link" href="myreports.html">📋 My Reports</a>
+          <a class="nav-link" href="profile.html">👤 Profile</a>
 
           <!-- Profile Section - Will be updated by JavaScript -->
           <div id="navProfileSection" class="d-flex align-items-center">
@@ -244,6 +245,33 @@
                 <div class="mb-3">
                   <strong>Detected Issue:</strong>
                   <p id="analyzedIssueText" class="mt-1 mb-3"></p>
+                </div>
+
+                <div class="mb-3">
+                  <label for="categorySelect" class="form-label"
+                    ><strong>Category</strong> (you can change if AI is
+                    wrong)</label
+                  >
+                  <div class="row g-2">
+                    <div class="col-md-6">
+                      <select
+                        id="categorySelect"
+                        class="form-select"
+                        aria-label="Select category"
+                      ></select>
+                    </div>
+                    <div class="col-md-6">
+                      <select
+                        id="subcategorySelect"
+                        class="form-select"
+                        aria-label="Select subcategory"
+                      ></select>
+                    </div>
+                  </div>
+                  <small class="text-muted"
+                    >Your selection will override the AI suggestion when you
+                    submit.</small
+                  >
                 </div>
 
                 <div class="mb-3">

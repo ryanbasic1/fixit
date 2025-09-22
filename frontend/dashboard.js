@@ -1,13 +1,7 @@
 // Load unique categories for filter
 async function loadCategories() {
   try {
-    const response = await fetch(
-      "http://localhost:8000/complaints/categories",
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: "include",
-      }
-    );
+    const response = await apiFetch("/complaints/categories");
     const data = await response.json();
     if (response.ok) {
       const select = document.getElementById("categoryFilter");
@@ -32,12 +26,8 @@ async function loadPublicComplaints() {
   const days = document.getElementById("timeFilter").value;
 
   try {
-    const response = await fetch(
-      `http://localhost:8000/complaints/public?sort_by=${sortBy}&category=${category}&days=${days}`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: "include",
-      }
+    const response = await apiFetch(
+      `/complaints/public?sort_by=${sortBy}&category=${category}&days=${days}`
     );
 
     const data = await response.json();
@@ -86,8 +76,8 @@ function displayPublicComplaints(complaints) {
                     </span>
                 </div>
                 
-                <img 
-                    src="http://localhost:8000${complaint.image_url}" 
+        <img 
+          src="${window.apiBase}${complaint.image_url}" 
                     alt="${complaint.category}" 
                     class="preview-image"
                     onerror="this.src='https://via.placeholder.com/400x300?text=Image+Unavailable'"
@@ -148,14 +138,9 @@ async function voteComplaint(complaintId) {
   }
 
   try {
-    const response = await fetch(
-      `http://localhost:8000/complaints/vote/${complaintId}`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: "include",
-      }
-    );
+    const response = await apiFetch(`/complaints/vote/${complaintId}`, {
+      method: "POST",
+    });
 
     const data = await response.json();
     if (response.ok) {

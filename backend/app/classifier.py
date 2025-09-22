@@ -33,6 +33,15 @@ PREDICTIONS_CACHE = CACHE_DIR / "predictions.json"
 # Load cached predictions if they exist
 cached_predictions = {}
 
+NON_CIVIC_TEXT_LABELS = [
+    "a selfie photo of a person",
+    "a portrait of a person",
+    "an indoor selfie",
+    "a photo of a pet (dog or cat)",
+    "a random object not a civic issue",
+    "a plate of food",
+]
+
 if _clip_available:
     try:
         model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
@@ -44,6 +53,10 @@ if _clip_available:
                 text_prompt = f"a photo of {issue_name.lower()}"
                 labels.append(text_prompt)
                 label_to_category_issue[text_prompt] = (category, issue_name)
+        # Add non-civic prompts
+        for txt in NON_CIVIC_TEXT_LABELS:
+            labels.append(txt)
+            label_to_category_issue[txt] = ("non_civic", "non_civic")
     except Exception as e:
         logger.warning(f"Failed to load CLIP model: {e}")
         _clip_available = False
@@ -72,6 +85,13 @@ def classify_image(image: Image.Image):
             
             # Log the prediction
             logger.info(f"CLIP prediction: {issue} (confidence: {confidence:.2f})")
+
+            # If CLIP says it's non-civic with reasonable confidence or
+            # if all civic probabilities are weak compared to non-civic prompts, gate it
+            if category == "non_civic" and confidence >= 0.45:
+                return "non_civic", confidence
+
+            # Otherwise continue with normalized civic mapping
             
             # Normalize the prediction to match our categories
             if "pothole" in issue.lower():
@@ -93,10 +113,35 @@ def classify_image(image: Image.Image):
             # Fallback to rule-based classification
             logger.warning("Using rule-based classification (CLIP not available)")
             
-            # Simple pixel-based analysis
-            img_array = numpy.array(image)
-            avg_color = img_array.mean(axis=(0, 1))
-            
+            img = image.convert("RGB")
+            arr = numpy.array(img)
+
+            # Heuristic 1: Skin-tone ratio (HSV-based)
+            hsv = numpy.array(img.convert("HSV"))
+            # PIL HSV is 0-255 for each channel
+            H = hsv[:, :, 0].astype(numpy.int32)
+            S = hsv[:, :, 1].astype(numpy.int32)
+            V = hsv[:, :, 2].astype(numpy.int32)
+            skin_mask = (
+                (H >= 0) & (H <= 50) &
+                (S >= int(0.23 * 255)) & (S <= int(0.68 * 255)) &
+                (V >= int(0.35 * 255))
+            )
+            skin_ratio = float(skin_mask.mean()) if skin_mask.size else 0.0
+
+            # Heuristic 2: Central skin concentration (focus on middle area)
+            h, w = skin_mask.shape
+            y0, y1 = int(h * 0.25), int(h * 0.75)
+            x0, x1 = int(w * 0.25), int(w * 0.75)
+            central_ratio = float(skin_mask[y0:y1, x0:x1].mean()) if h > 0 and w > 0 else 0.0
+
+            if skin_ratio > 0.25 and central_ratio > 0.20:
+                # Likely a selfie/portrait -> non-civic image
+                conf = min(0.9, 0.5 + (skin_ratio + central_ratio) / 2)
+                return "non_civic", conf
+
+            # Fallback: very simple pixel-based heuristic for civic categories
+            avg_color = arr.mean(axis=(0, 1))
             if avg_color[0] > 150:  # More red
                 return "pothole", 0.6
             elif avg_color[2] > 150:  # More blue

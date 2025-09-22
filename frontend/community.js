@@ -23,6 +23,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Set up filter event listeners
   setupFilters();
+
+  // After initial load, handle highlight from query and dup notice
+  handleHighlightFromQuery();
 });
 
 function showNotLoggedInState() {
@@ -64,13 +67,7 @@ async function loadCategories() {
   if (!token) return;
 
   try {
-    const response = await fetch(
-      "http://localhost:8000/complaints/categories",
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: "include",
-      }
-    );
+    const response = await apiFetch("/complaints/categories");
 
     const data = await response.json();
     if (response.ok) {
@@ -100,18 +97,16 @@ async function loadPublicComplaints() {
   const days = document.getElementById("timeFilter").value;
 
   try {
-    const response = await fetch(
-      `http://localhost:8000/complaints/public?sort_by=${sortBy}&category=${category}&days=${days}`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: "include",
-      }
+    const response = await apiFetch(
+      `/complaints/public?sort_by=${sortBy}&category=${category}&days=${days}`
     );
 
     const data = await response.json();
     if (response.ok) {
       displayPublicComplaints(data.complaints);
       updateCommunityStats(data.complaints);
+      // Re-apply highlight when list changes
+      setTimeout(() => handleHighlightFromQuery(), 0);
     } else {
       showAlert("danger", "Failed to load community reports");
     }
@@ -136,7 +131,7 @@ function displayPublicComplaints(complaints) {
   container.innerHTML = "";
   complaints.forEach((complaint) => {
     container.innerHTML += `
-      <div class="complaint-card">
+      <div class="complaint-card" data-complaint-id="${complaint.id}">
         <div class="complaint-metadata mb-2">
           <div>
             <span class="badge bg-primary category-badge">
@@ -155,7 +150,7 @@ function displayPublicComplaints(complaints) {
         </div>
         
         <img 
-          src="http://localhost:8000${complaint.image_url}" 
+          src="${window.apiBase}${complaint.image_url}" 
           alt="${complaint.category}" 
           class="preview-image"
           onerror="this.src='https://via.placeholder.com/400x300?text=Image+Unavailable'"
@@ -181,18 +176,37 @@ function displayPublicComplaints(complaints) {
                   : ""
               }
             </div>
-            <button 
-              onclick="voteComplaint(${complaint.id})"
-              class="vote-btn ${complaint.has_voted ? "voted" : ""}"
-              data-complaint-id="${complaint.id}"
-            >
-              <i class="bi ${
-                complaint.has_voted
-                  ? "bi-hand-thumbs-up-fill"
-                  : "bi-hand-thumbs-up"
-              }"></i>
-              <span class="vote-count">${complaint.vote_count}</span>
-            </button>
+            <div class="d-flex align-items-center gap-2">
+              ${
+                complaint.location &&
+                ((complaint.location.latitude != null &&
+                  complaint.location.longitude != null) ||
+                  complaint.location.address)
+                  ? `<a class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${
+                      complaint.location.latitude != null &&
+                      complaint.location.longitude != null
+                        ? encodeURIComponent(complaint.location.latitude) +
+                          "," +
+                          encodeURIComponent(complaint.location.longitude)
+                        : encodeURIComponent(complaint.location.address)
+                    }">
+                       <i class="bi bi-geo"></i> View Location
+                     </a>`
+                  : ""
+              }
+              <button 
+                onclick="voteComplaint(${complaint.id})"
+                class="vote-btn ${complaint.has_voted ? "voted" : ""}"
+                data-complaint-id="${complaint.id}"
+              >
+                <i class="bi ${
+                  complaint.has_voted
+                    ? "bi-hand-thumbs-up-fill"
+                    : "bi-hand-thumbs-up"
+                }"></i>
+                <span class="vote-count">${complaint.vote_count}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -200,28 +214,64 @@ function displayPublicComplaints(complaints) {
   });
 }
 
+// Highlight handling: scroll to and pulse a card by ID if ?highlight= is present
+function handleHighlightFromQuery() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const highlightId = params.get("highlight");
+
+    // Show a notice if we redirected from a duplicate submission
+    try {
+      const raw = sessionStorage.getItem("dupNotice");
+      if (raw) {
+        const info = JSON.parse(raw);
+        showAlert(
+          "success",
+          `${info.message} Redirected to report #${info.id}. Current votes: ${info.vote_count}.`
+        );
+        sessionStorage.removeItem("dupNotice");
+      }
+    } catch (_) {}
+
+    if (!highlightId) return;
+    const selector = `[data-complaint-id="${highlightId}"]`;
+    const el = document.querySelector(selector);
+    if (!el) return;
+
+    el.classList.add("highlight-pulse");
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Remove the class after a while
+    setTimeout(() => el.classList.remove("highlight-pulse"), 4000);
+  } catch (e) {
+    // ignore
+  }
+}
+
 function updateCommunityStats(complaints) {
-  const totalIssues = complaints.length;
-  const resolvedIssues = complaints.filter(
-    (c) => c.status === "resolved"
-  ).length;
-  const pendingIssues = complaints.filter((c) => c.status === "pending").length;
-  const inProgressIssues = complaints.filter(
-    (c) => c.status === "in_progress"
-  ).length;
+  const total = complaints.length;
+  const resolved = complaints.filter((c) => c.status === "resolved").length;
+  // Approximate active users as unique usernames in the list
+  const active = (() => {
+    try {
+      const set = new Set(
+        complaints
+          .map((c) => c.user && c.user.username)
+          .filter((u) => typeof u === "string" && u.length > 0)
+      );
+      return set.size;
+    } catch (_) {
+      return Math.max(0, Math.floor(total * 0.3));
+    }
+  })();
 
-  // Update stats if elements exist
-  const totalElement = document.getElementById("totalIssues");
-  if (totalElement) totalElement.textContent = totalIssues;
+  const totalEl = document.getElementById("totalReports");
+  if (totalEl) totalEl.textContent = total.toLocaleString();
 
-  const resolvedElement = document.getElementById("resolvedIssues");
-  if (resolvedElement) resolvedElement.textContent = resolvedIssues;
+  const resolvedEl = document.getElementById("resolvedReports");
+  if (resolvedEl) resolvedEl.textContent = resolved.toLocaleString();
 
-  const pendingElement = document.getElementById("pendingIssues");
-  if (pendingElement) pendingElement.textContent = pendingIssues;
-
-  const inProgressElement = document.getElementById("inProgressIssues");
-  if (inProgressElement) inProgressElement.textContent = inProgressIssues;
+  const activeEl = document.getElementById("activeUsers");
+  if (activeEl) activeEl.textContent = active.toLocaleString();
 }
 
 async function voteComplaint(complaintId) {
@@ -232,14 +282,9 @@ async function voteComplaint(complaintId) {
   }
 
   try {
-    const response = await fetch(
-      `http://localhost:8000/complaints/vote/${complaintId}`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: "include",
-      }
-    );
+    const response = await apiFetch(`/complaints/vote/${complaintId}`, {
+      method: "POST",
+    });
 
     const data = await response.json();
     if (response.ok) {

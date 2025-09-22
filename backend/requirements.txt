@@ -8,3 +8,5 @@ numpy
 passlib[bcrypt]
 python-jose[cryptography]
 python-multipart
+ImageHash
+rapidfuzz

@@ -31,6 +31,21 @@
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         transition: transform 0.2s ease;
       }
+      /* Highlight pulse for redirected duplicates */
+      .highlight-pulse {
+        animation: pulseBorder 0.8s ease-in-out 0s 4 alternate;
+        box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.6);
+      }
+      @keyframes pulseBorder {
+        from {
+          box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.6);
+          transform: translateY(-2px);
+        }
+        to {
+          box-shadow: 0 0 20px 6px rgba(13, 110, 253, 0.3);
+          transform: translateY(0);
+        }
+      }
       .complaint-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -111,6 +126,7 @@
           <a class="nav-link" href="report.html">📝 Report Issue</a>
           <a class="nav-link active" href="community.html">🌍 Community</a>
           <a class="nav-link" href="myreports.html">📋 My Reports</a>
+          <a class="nav-link" href="profile.html">👤 Profile</a>
 
           <!-- Profile Section - Will be updated by JavaScript -->
           <div id="navProfileSection" class="d-flex align-items-center">

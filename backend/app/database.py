@@ -35,6 +35,7 @@ class Complaint(Base):
     subcategory = Column(String, index=True)
     description = Column(Text)
     image_path = Column(String)
+    image_phash = Column(String)  # perceptual hash for duplicate detection
     latitude = Column(Float)
     longitude = Column(Float)
     address = Column(String)

@@ -16,6 +16,7 @@ origins = [
     "http://127.0.0.1:5500",   # VS Code Live Server alternative
     "http://localhost:8000",    # Backend server
     "http://127.0.0.1:8000",   # Backend server alternative
+    "http://192.168.31.102:5500", # Local network IP
 ]
 
 app.add_middleware(

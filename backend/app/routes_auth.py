@@ -92,12 +92,14 @@ async def login(
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "username": user.username
+        "username": user.username,
+        "is_admin": getattr(user, "is_admin", False)
     }
 
 @router.get("/me")
 async def read_users_me(current_user: User = Depends(get_current_user)):
     return {
         "username": current_user.username,
-        "email": current_user.email
+        "email": current_user.email,
+        "is_admin": getattr(current_user, "is_admin", False)
     }

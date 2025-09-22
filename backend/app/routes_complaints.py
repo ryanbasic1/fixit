@@ -7,11 +7,20 @@ import uuid
 import json
 from typing import Optional, List
 from datetime import datetime, timedelta
+import io, math
 from PIL import Image as PILImage
 from .database import get_db, Complaint, User, Vote
 from .classifier import classify_image
-from .templates import create_issue_report
+from .templates import create_issue_report, mapping
 from .routes_auth import get_current_user
+try:
+    import imagehash
+except Exception:
+    imagehash = None
+try:
+    from rapidfuzz.fuzz import token_set_ratio
+except Exception:
+    token_set_ratio = None
 
 router = APIRouter(prefix="/complaints", tags=["Complaints"])
 
@@ -20,6 +29,31 @@ UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Supported image formats
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+
+
+def haversine_meters(lat1, lon1, lat2, lon2):
+    if None in (lat1, lon1, lat2, lon2):
+        return None
+    R = 6371000.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+def phash_hex_from_path(path: Path) -> str:
+    if imagehash is None:
+        return None
+    with PILImage.open(path) as im:
+        im = im.convert("RGB")
+        h = imagehash.phash(im)
+        return str(h)
+
+def phash_hamming_dist(hex1: str, hex2: str) -> int:
+    if not hex1 or not hex2:
+        return 999
+    return bin(int(hex1, 16) ^ int(hex2, 16)).count("1")
 
 @router.get("/categories")
 async def get_categories(
@@ -33,11 +67,32 @@ async def get_categories(
         "categories": [cat[0] for cat in categories if cat[0]]
     }
 
+@router.get("/catalog")
+async def get_category_catalog(
+    current_user: User = Depends(get_current_user)
+):
+    """Return a flattened catalog of all supported categories and subcategories from templates.mapping.
+    Each item includes: issueType (group), subcategory (human label), issue_category (official), description, priority.
+    """
+    catalog = []
+    for issue_type, issues in mapping.items():
+        for subcat, data in issues.items():
+            catalog.append({
+                "issueType": issue_type,
+                "subcategory": subcat,
+                "issue_category": data.get("category"),
+                "description": data.get("description"),
+                "priority": data.get("priority"),
+            })
+    return {"success": True, "catalog": catalog}
+
 @router.post("/raise")
 async def raise_complaint(
     image: UploadFile = File(...),
     location: str = Form(None),
     description: str = Form(None),
+    category_override: str = Form(None),
+    subcategory_override: str = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -49,6 +104,7 @@ async def raise_complaint(
             detail=f"Unsupported file format. Allowed formats: {', '.join(ALLOWED_EXTENSIONS)}"
         )
 
+    file_path = None
     try:
         # Save image with unique name
         filename = f"{uuid.uuid4()}{file_ext}"
@@ -65,7 +121,8 @@ async def raise_complaint(
                 location_data = {"address": location}
 
         # Classify image and generate report
-        img = PILImage.open(file_path).convert("RGB")
+        with PILImage.open(file_path) as im:
+            img = im.convert("RGB")
         predicted_issue, confidence = classify_image(img)
         report = create_issue_report(predicted_issue, location_data)
         
@@ -73,20 +130,138 @@ async def raise_complaint(
         report["metadata"] = report.get("metadata", {})
         report["metadata"]["ai_confidence"] = confidence
 
+        # Determine final category/subcategory/priority/description (apply user override when valid)
+        final_category = report["issue_category"]
+        final_subcategory = predicted_issue
+        final_priority = report["priority_level"]
+        final_description = description or report["detailed_description"]
+
+        override_applied = False
+        if subcategory_override:
+            # Validate override against templates.mapping
+            for issue_type, issues in mapping.items():
+                if subcategory_override in issues:
+                    data = issues[subcategory_override]
+                    final_category = data.get("category", final_category)
+                    final_subcategory = subcategory_override
+                    # If user didn't provide a custom description, use template
+                    if not description:
+                        final_description = data.get("description", final_description)
+                    # Align priority with template for the chosen subcategory
+                    final_priority = data.get("priority", final_priority)
+                    override_applied = True
+                    break
+        elif category_override:
+            # Backward-safe: try to find a subcategory whose issue_category matches the provided category_override
+            for issue_type, issues in mapping.items():
+                for subcat, data in issues.items():
+                    if data.get("category") == category_override:
+                        final_category = data.get("category", final_category)
+                        final_subcategory = subcat
+                        if not description:
+                            final_description = data.get("description", final_description)
+                        final_priority = data.get("priority", final_priority)
+                        override_applied = True
+                        break
+                if override_applied:
+                    break
+
+        # Duplicate detection
+        latitude = location_data.get("latitude")
+        longitude = location_data.get("longitude")
+        new_phash = None
+        try:
+            new_phash = phash_hex_from_path(file_path)
+        except Exception:
+            new_phash = None
+
+        # Search recent nearby complaints for duplicates
+        duplicate_found = None
+        if new_phash and (latitude is not None and longitude is not None):
+            cutoff = datetime.utcnow() - timedelta(days=30)
+            candidates = (
+                db.query(Complaint)
+                .filter(Complaint.created_at >= cutoff)
+                .filter(Complaint.latitude.isnot(None))
+                .filter(Complaint.longitude.isnot(None))
+                .all()
+            )
+
+            best = None
+            best_score = -1.0
+            for c in candidates:
+                dist_m = haversine_meters(latitude, longitude, c.latitude, c.longitude)
+                if dist_m is None or dist_m > 400:  # 400m radius
+                    continue
+                hdist = phash_hamming_dist(new_phash, getattr(c, 'image_phash', None))
+                if hdist > 10:
+                    # try textual similarity as a backup if available
+                    tscore = 0
+                    if token_set_ratio and (description or final_description) and c.description:
+                        base_desc = description or final_description
+                        try:
+                            tscore = token_set_ratio(base_desc, c.description)
+                        except Exception:
+                            tscore = 0
+                    if tscore < 85:
+                        continue
+                    score = tscore
+                else:
+                    score = 100 - hdist
+
+                if score > best_score:
+                    best_score = score
+                    best = c
+
+            duplicate_found = best
+
+        if duplicate_found:
+            # Auto-vote for the user if not already voted
+            existing = duplicate_found
+            already_voted = (
+                db.query(Vote).filter(Vote.user_id == current_user.id, Vote.complaint_id == existing.id).first()
+            )
+            if not already_voted:
+                vote = Vote(user_id=current_user.id, complaint_id=existing.id)
+                db.add(vote)
+                existing.vote_count = (existing.vote_count or 0) + 1
+                db.commit()
+                db.refresh(existing)
+
+            # Cleanup uploaded temp file, we won't use it now
+            try:
+                if file_path.exists():
+                    file_path.unlink()
+            except Exception:
+                pass
+
+            return {
+                "success": True,
+                "duplicate": True,
+                "duplicate_of": existing.id,
+                "vote_count": existing.vote_count or 0,
+                "message": "Similar report found nearby. We've upvoted the existing report for you.",
+            }
+
         # Create complaint record
         complaint = Complaint(
             user_id=current_user.id,
-            category=report["issue_category"],
-            subcategory=predicted_issue,
-            description=description or report["detailed_description"],
+            category=final_category,
+            subcategory=final_subcategory,
+            description=final_description,
             image_path=f"/uploads/{filename}",
             latitude=location_data.get("latitude"),
             longitude=location_data.get("longitude"),
             address=location_data.get("address"),
             status="pending",
-            priority=report["priority_level"],
+            priority=final_priority,
+            image_phash=new_phash,
             ai_metadata={
                 "ai_description": report["detailed_description"],
+                "ai_confidence": confidence,
+                "user_override": override_applied,
+                "override_category": final_category if override_applied else None,
+                "override_subcategory": final_subcategory if override_applied else None,
                 "location_data": location_data
             }
         )
@@ -97,6 +272,7 @@ async def raise_complaint(
 
         return {
             "success": True,
+            "duplicate": False,
             "complaint": {
                 "id": complaint.id,
                 "category": complaint.category,
@@ -116,7 +292,7 @@ async def raise_complaint(
 
     except Exception as e:
         # Clean up uploaded file if something goes wrong
-        if file_path.exists():
+        if file_path and file_path.exists():
             file_path.unlink()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -305,3 +481,43 @@ def get_complaint_details(
             "updated_at": complaint.updated_at.isoformat()
         }
     }
+
+@router.delete("/{complaint_id}")
+def delete_complaint(
+    complaint_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Permanently delete a complaint that belongs to the current user (or if the user is admin).
+    Removes associated votes and deletes the uploaded image file from disk.
+    """
+    complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    # Authorization: owner or admin
+    is_owner = complaint.user_id == current_user.id
+    is_admin = getattr(current_user, "is_admin", False)
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this complaint")
+
+    # Delete image file if present
+    try:
+        if complaint.image_path:
+            # image_path stored as "/uploads/<file>"
+            rel = complaint.image_path.lstrip("/")
+            abs_path = (UPLOADS_DIR.parent / rel).resolve()
+            if abs_path.exists():
+                abs_path.unlink()
+    except Exception:
+        # Proceed even if file removal fails
+        pass
+
+    # Delete associated votes first to maintain referential integrity
+    db.query(Vote).filter(Vote.complaint_id == complaint.id).delete()
+
+    # Delete the complaint
+    db.delete(complaint)
+    db.commit()
+
+    return {"success": True, "deleted_id": complaint_id}

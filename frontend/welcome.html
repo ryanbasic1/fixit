@@ -18,12 +18,42 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <!-- Preload Google Fonts stylesheet to reduce layout shift; noscript fallback below -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      onload="this.onload=null;this.rel='stylesheet'"
+    />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
     <style>
       body {
         font-family: "Inter", sans-serif;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
         margin: 0;
+      }
+
+      /* Accessible skip link */
+      .skip-link {
+        position: absolute;
+        top: -40px;
+        left: 0;
+        background: #111827;
+        color: #ffffff;
+        padding: 8px 12px;
+        z-index: 1000;
+        border-radius: 0 0 6px 0;
+      }
+      .skip-link:focus {
+        top: 0;
+        outline: 2px solid #ffffff;
+        outline-offset: 2px;
       }
 
       .welcome-container {
@@ -225,152 +255,256 @@
           transform: translateY(-20px) rotate(5deg);
         }
       }
+
+      /* Respect users who prefer reduced motion */
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+          scroll-behavior: auto !important;
+        }
+        .floating-elements,
+        .floating-element {
+          animation: none !important;
+        }
+      }
+
+      /* Improve focus visibility */
+      :focus-visible {
+        outline: 3px solid #4f46e5;
+        outline-offset: 2px;
+      }
     </style>
   </head>
   <body>
-    <div class="welcome-container">
-      <div class="welcome-card position-relative">
-        <!-- Floating background elements -->
-        <div class="floating-elements">
-          <i class="bi bi-camera floating-element" style="font-size: 2rem"></i>
-          <i class="bi bi-robot floating-element" style="font-size: 2.5rem"></i>
-          <i class="bi bi-people floating-element" style="font-size: 2rem"></i>
-        </div>
-
-        <!-- Hero Section -->
-        <div class="hero-section">
-          <h1>🏛️ Civic AI</h1>
-          <p>
-            Smart AI-Powered Civic Issue Reporting Platform<br />
-            Empowering communities through intelligent problem-solving
-          </p>
-          <div class="d-flex gap-3 justify-content-center flex-wrap">
-            <span class="badge bg-light text-dark px-3 py-2 fs-6">
-              <i class="bi bi-camera"></i> Photo Recognition
-            </span>
-            <span class="badge bg-light text-dark px-3 py-2 fs-6">
-              <i class="bi bi-robot"></i> AI Analysis
-            </span>
-            <span class="badge bg-light text-dark px-3 py-2 fs-6">
-              <i class="bi bi-people"></i> Community Driven
-            </span>
+    <a href="#main" class="skip-link">Skip to content</a>
+    <main id="main" tabindex="-1">
+      <div
+        class="welcome-container"
+        role="region"
+        aria-label="Welcome to Civic AI"
+      >
+        <div class="welcome-card position-relative" role="document">
+          <!-- Floating background elements -->
+          <div class="floating-elements">
+            <i
+              class="bi bi-camera floating-element"
+              style="font-size: 2rem"
+              aria-hidden="true"
+            ></i>
+            <i
+              class="bi bi-robot floating-element"
+              style="font-size: 2.5rem"
+              aria-hidden="true"
+            ></i>
+            <i
+              class="bi bi-people floating-element"
+              style="font-size: 2rem"
+              aria-hidden="true"
+            ></i>
           </div>
-        </div>
 
-        <!-- Features Section -->
-        <div class="features-grid">
-          <div class="feature-card">
-            <div class="feature-icon">
-              <i class="bi bi-camera-fill"></i>
-            </div>
-            <h3 class="feature-title">Smart Photo Capture</h3>
-            <p class="feature-description">
-              Simply take a photo of any civic issue - from potholes to broken
-              streetlights. Our AI instantly recognizes the problem type.
+          <!-- Hero Section -->
+          <section class="hero-section" aria-labelledby="hero-heading">
+            <h1 id="hero-heading">🏛️ Civic AI</h1>
+            <p>
+              Smart AI-Powered Civic Issue Reporting Platform<br />
+              Empowering communities through intelligent problem-solving
             </p>
-          </div>
-
-          <div class="feature-card">
-            <div class="feature-icon">
-              <i class="bi bi-robot"></i>
+            <div class="d-flex gap-3 justify-content-center flex-wrap">
+              <span
+                class="badge bg-light text-dark px-3 py-2 fs-6"
+                aria-label="Photo Recognition feature"
+              >
+                <i class="bi bi-camera" aria-hidden="true"></i>
+                <span class="visually-hidden">Photo Recognition</span> Photo
+                Recognition
+              </span>
+              <span
+                class="badge bg-light text-dark px-3 py-2 fs-6"
+                aria-label="AI Analysis feature"
+              >
+                <i class="bi bi-robot" aria-hidden="true"></i>
+                <span class="visually-hidden">AI Analysis</span> AI Analysis
+              </span>
+              <span
+                class="badge bg-light text-dark px-3 py-2 fs-6"
+                aria-label="Community Driven feature"
+              >
+                <i class="bi bi-people" aria-hidden="true"></i>
+                <span class="visually-hidden">Community Driven</span> Community
+                Driven
+              </span>
             </div>
-            <h3 class="feature-title">AI-Powered Analysis</h3>
-            <p class="feature-description">
-              Advanced CLIP-based AI automatically categorizes issues, suggests
-              priority levels, and provides detailed problem descriptions.
+          </section>
+
+          <!-- Features Section -->
+          <section class="features-grid" aria-label="Key features">
+            <div class="feature-card">
+              <div class="feature-icon">
+                <i class="bi bi-camera-fill" aria-hidden="true"></i>
+              </div>
+              <h3 class="feature-title">Smart Photo Capture</h3>
+              <p class="feature-description">
+                Simply take a photo of any civic issue - from potholes to broken
+                streetlights. Our AI instantly recognizes the problem type.
+              </p>
+            </div>
+
+            <div class="feature-card">
+              <div class="feature-icon">
+                <i class="bi bi-robot" aria-hidden="true"></i>
+              </div>
+              <h3 class="feature-title">AI-Powered Analysis</h3>
+              <p class="feature-description">
+                Advanced CLIP-based AI automatically categorizes issues,
+                suggests priority levels, and provides detailed problem
+                descriptions.
+              </p>
+            </div>
+
+            <div class="feature-card">
+              <div class="feature-icon">
+                <i class="bi bi-mic-fill" aria-hidden="true"></i>
+              </div>
+              <h3 class="feature-title">Voice Input</h3>
+              <p class="feature-description">
+                Add voice descriptions to your reports for additional context.
+                Perfect for accessibility and detailed reporting.
+              </p>
+            </div>
+
+            <div class="feature-card">
+              <div class="feature-icon">
+                <i class="bi bi-people-fill" aria-hidden="true"></i>
+              </div>
+              <h3 class="feature-title">Community Engagement</h3>
+              <p class="feature-description">
+                View and vote on community reports. See what issues matter most
+                to your neighbors and join the civic conversation.
+              </p>
+            </div>
+
+            <div class="feature-card">
+              <div class="feature-icon">
+                <i class="bi bi-graph-up" aria-hidden="true"></i>
+              </div>
+              <h3 class="feature-title">Progress Tracking</h3>
+              <p class="feature-description">
+                Track the status of your reports from submission to resolution.
+                Stay informed about civic improvements in your area.
+              </p>
+            </div>
+
+            <div class="feature-card">
+              <div class="feature-icon">
+                <i class="bi bi-shield-check" aria-hidden="true"></i>
+              </div>
+              <h3 class="feature-title">Secure & Private</h3>
+              <p class="feature-description">
+                Your data is protected with modern security practices. Report
+                issues confidently and anonymously if preferred.
+              </p>
+            </div>
+          </section>
+
+          <!-- Stats Section -->
+          <section class="stats-section" aria-label="Platform stats">
+            <div class="stats-grid">
+              <div class="stat-item">
+                <h3>98%</h3>
+                <p>AI Accuracy Rate</p>
+              </div>
+              <div class="stat-item">
+                <h3>< 5s</h3>
+                <p>Analysis Time</p>
+              </div>
+              <div class="stat-item">
+                <h3>24/7</h3>
+                <p>Platform Availability</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- CTA Section -->
+          <section class="cta-section" aria-label="Get started">
+            <h2 class="cta-title" id="cta-title">
+              Ready to Make a Difference?
+            </h2>
+            <p class="cta-subtitle">
+              Join thousands of citizens making their communities better, one
+              report at a time.
             </p>
-          </div>
-
-          <div class="feature-card">
-            <div class="feature-icon">
-              <i class="bi bi-mic-fill"></i>
+            <button
+              class="btn btn-get-started"
+              onclick="enterApp()"
+              aria-labelledby="cta-title"
+              aria-describedby="cta-hint"
+            >
+              <i class="bi bi-arrow-right-circle" aria-hidden="true"></i> Enter
+              Civic AI Platform
+            </button>
+            <div class="form-check d-inline-block mt-3 ms-2">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="dontShowAgain"
+                checked
+                aria-label="Don't show this welcome page again by default"
+              />
+              <label class="form-check-label" for="dontShowAgain"
+                >Don't show this again</label
+              >
             </div>
-            <h3 class="feature-title">Voice Input</h3>
-            <p class="feature-description">
-              Add voice descriptions to your reports for additional context.
-              Perfect for accessibility and detailed reporting.
-            </p>
-          </div>
-
-          <div class="feature-card">
-            <div class="feature-icon">
-              <i class="bi bi-people-fill"></i>
+            <div class="mt-3">
+              <small class="text-muted">
+                <span id="cta-hint"
+                  >New users can start reporting immediately • No complex
+                  setup</span
+                >
+                required
+              </small>
             </div>
-            <h3 class="feature-title">Community Engagement</h3>
-            <p class="feature-description">
-              View and vote on community reports. See what issues matter most to
-              your neighbors and join the civic conversation.
-            </p>
-          </div>
-
-          <div class="feature-card">
-            <div class="feature-icon">
-              <i class="bi bi-graph-up"></i>
-            </div>
-            <h3 class="feature-title">Progress Tracking</h3>
-            <p class="feature-description">
-              Track the status of your reports from submission to resolution.
-              Stay informed about civic improvements in your area.
-            </p>
-          </div>
-
-          <div class="feature-card">
-            <div class="feature-icon">
-              <i class="bi bi-shield-check"></i>
-            </div>
-            <h3 class="feature-title">Secure & Private</h3>
-            <p class="feature-description">
-              Your data is protected with modern security practices. Report
-              issues confidently and anonymously if preferred.
-            </p>
-          </div>
-        </div>
-
-        <!-- Stats Section -->
-        <div class="stats-section">
-          <div class="stats-grid">
-            <div class="stat-item">
-              <h3>98%</h3>
-              <p>AI Accuracy Rate</p>
-            </div>
-            <div class="stat-item">
-              <h3>< 5s</h3>
-              <p>Analysis Time</p>
-            </div>
-            <div class="stat-item">
-              <h3>24/7</h3>
-              <p>Platform Availability</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- CTA Section -->
-        <div class="cta-section">
-          <h2 class="cta-title">Ready to Make a Difference?</h2>
-          <p class="cta-subtitle">
-            Join thousands of citizens making their communities better, one
-            report at a time.
-          </p>
-          <button class="btn btn-get-started" onclick="enterApp()">
-            <i class="bi bi-arrow-right-circle"></i> Enter Civic AI Platform
-          </button>
-          <div class="mt-3">
-            <small class="text-muted">
-              New users can start reporting immediately • No complex setup
-              required
-            </small>
-          </div>
+          </section>
         </div>
       </div>
-    </div>
+    </main>
+
+    <noscript>
+      <div
+        class="container"
+        style="
+          max-width: 720px;
+          margin: 1rem auto;
+          background: #fff;
+          border-radius: 12px;
+          padding: 1rem;
+        "
+      >
+        <p>JavaScript is disabled. You can still proceed to the app:</p>
+        <a class="btn btn-primary" href="index.html">Enter Civic AI Platform</a>
+      </div>
+    </noscript>
 
     <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+      defer
+    ></script>
 
     <script>
       function enterApp() {
-        // Set a flag that user has seen the welcome page
-        localStorage.setItem("hasSeenWelcome", "true");
+        // Respect user's preference for showing this page again
+        try {
+          const dontShow = document.getElementById("dontShowAgain");
+          if (!dontShow || dontShow.checked) {
+            localStorage.setItem("hasSeenWelcome", "true");
+          } else {
+            localStorage.removeItem("hasSeenWelcome");
+          }
+        } catch (e) {
+          // Ignore storage errors and continue navigation
+        }
 
         // Redirect to the main app
         window.location.href = "index.html";
@@ -378,41 +512,47 @@
 
       // Add some interactive animations
       document.addEventListener("DOMContentLoaded", () => {
-        // Animate feature cards on scroll
-        const observerOptions = {
-          threshold: 0.1,
-          rootMargin: "0px 0px -50px 0px",
-        };
+        // Respect prefers-reduced-motion: skip animations
+        const prefersReducedMotion = window.matchMedia(
+          "(prefers-reduced-motion: reduce)"
+        ).matches;
+        if (!prefersReducedMotion) {
+          // Animate feature cards on scroll
+          const observerOptions = {
+            threshold: 0.1,
+            rootMargin: "0px 0px -50px 0px",
+          };
 
-        const observer = new IntersectionObserver((entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              entry.target.style.animation = "slideInUp 0.6s ease forwards";
-            }
+          const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                entry.target.style.animation = "slideInUp 0.6s ease forwards";
+              }
+            });
+          }, observerOptions);
+
+          document.querySelectorAll(".feature-card").forEach((card) => {
+            card.style.opacity = "0";
+            card.style.transform = "translateY(30px)";
+            observer.observe(card);
           });
-        }, observerOptions);
 
-        document.querySelectorAll(".feature-card").forEach((card) => {
-          card.style.opacity = "0";
-          card.style.transform = "translateY(30px)";
-          observer.observe(card);
-        });
-
-        // Add CSS animation
-        const style = document.createElement("style");
-        style.textContent = `
-          @keyframes slideInUp {
-            from {
-              opacity: 0;
-              transform: translateY(30px);
+          // Add CSS animation
+          const style = document.createElement("style");
+          style.textContent = `
+            @keyframes slideInUp {
+              from {
+                opacity: 0;
+                transform: translateY(30px);
+              }
+              to {
+                opacity: 1;
+                transform: translateY(0);
+              }
             }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-        `;
-        document.head.appendChild(style);
+          `;
+          document.head.appendChild(style);
+        }
       });
     </script>
   </body>

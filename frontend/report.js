@@ -296,14 +296,8 @@
         '<span class="spinner-border spinner-border-sm"></span> Analyzing...';
 
       console.log("Making fetch request to analyze endpoint...");
-      console.log("URL: http://localhost:8000/classifier/analyze");
-
-      const response = await fetch("http://localhost:8000/classifier/analyze", {
+      const response = await apiFetch("/classifier/analyze", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        credentials: "include",
         body: formData,
       });
 
@@ -366,19 +360,68 @@
       analysisSection.classList.remove("d-none");
       console.log("Analysis section shown");
 
-      document.getElementById("analyzedCategoryBadge").textContent =
-        analysis.category;
-      document.getElementById(
+      const categoryBadge = document.getElementById("analyzedCategoryBadge");
+      const confidenceBadge = document.getElementById(
         "analyzedConfidenceBadge"
-      ).textContent = `Confidence: ${(analysis.confidence * 100).toFixed(1)}%`;
-      document.getElementById("analyzedIssueText").textContent =
-        analysis.predicted_issue;
-      document.getElementById("editableDescription").value =
-        analysis.description;
+      );
+      const issueText = document.getElementById("analyzedIssueText");
+      const editableDescription = document.getElementById(
+        "editableDescription"
+      );
+      const voiceBtn = document.getElementById("voiceInputBtn");
+      const submitBtn = document.getElementById("confirmSubmitBtn");
+
+      // Populate common fields
+      categoryBadge.textContent = analysis.category;
+      confidenceBadge.textContent = `Confidence: ${(
+        analysis.confidence * 100
+      ).toFixed(1)}%`;
+      issueText.textContent = analysis.predicted_issue;
+      editableDescription.value = analysis.description;
 
       const priorityBadge = document.getElementById("analyzedPriorityBadge");
       priorityBadge.textContent = `${analysis.priority} Priority`;
       priorityBadge.className = `badge priority-${analysis.priority.toLowerCase()}`;
+
+      // Populate category/subcategory selects
+      initCategorySelectors(analysis);
+
+      // Non-civic handling: disable submission and guide the user
+      if (analysis.is_civic === false || analysis.category === "non_civic") {
+        // Style badges to indicate caution
+        categoryBadge.classList.remove("bg-primary");
+        categoryBadge.classList.add("bg-warning", "text-dark");
+
+        // Lock editing and voice input for non-civic detections
+        editableDescription.disabled = true;
+        if (voiceBtn) {
+          voiceBtn.disabled = true;
+          voiceBtn.title = "Disabled for non-civic images";
+        }
+
+        // Disable submit and change button text
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = "🚫 Submission Disabled (Not a civic issue)";
+        }
+
+        // Friendly guidance toast
+        showAlert(
+          "warning",
+          "This looks non-civic (e.g., selfie, pet, random object). Please capture the actual issue like a pothole, garbage overflow, or broken streetlight."
+        );
+      } else {
+        // Ensure fields are enabled for civic cases
+        editableDescription.disabled = false;
+        if (voiceBtn) {
+          voiceBtn.disabled = false;
+          voiceBtn.title = "Click to speak your description";
+        }
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "✅ Submit This Report";
+        }
+      }
 
       console.log("All analysis result elements updated");
 
@@ -388,9 +431,9 @@
         console.log("Scrolled to analysis section");
 
         // Initialize voice input button
-        const voiceBtn = document.getElementById("voiceInputBtn");
-        if (voiceBtn) {
-          voiceBtn.classList.add("voice-input-btn");
+        const voiceBtn2 = document.getElementById("voiceInputBtn");
+        if (voiceBtn2) {
+          voiceBtn2.classList.add("voice-input-btn");
         }
       });
 
@@ -401,10 +444,97 @@
     }
   }
 
+  // Load catalog once per session
+  let catalogCache = null;
+  async function fetchCatalog() {
+    if (catalogCache) return catalogCache;
+    const res = await apiFetch("/complaints/catalog");
+    if (!res.ok) throw new Error("Failed to load categories");
+    const data = await res.json();
+    catalogCache = data.catalog;
+    return catalogCache;
+  }
+
+  async function initCategorySelectors(analysis) {
+    try {
+      const categorySelect = document.getElementById("categorySelect");
+      const subcategorySelect = document.getElementById("subcategorySelect");
+      if (!categorySelect || !subcategorySelect) return;
+
+      const catalog = await fetchCatalog();
+      // Build a map: issue_category -> [entries]
+      const byCategory = new Map();
+      for (const item of catalog) {
+        const key = item.issue_category;
+        if (!byCategory.has(key)) byCategory.set(key, []);
+        byCategory.get(key).push(item);
+      }
+
+      // Populate category options
+      categorySelect.innerHTML = "";
+      for (const [cat, items] of byCategory.entries()) {
+        const opt = document.createElement("option");
+        opt.value = cat;
+        opt.textContent = cat;
+        categorySelect.appendChild(opt);
+      }
+
+      // Helper to populate subcategories for a given category
+      function populateSubcats(cat) {
+        subcategorySelect.innerHTML = "";
+        const items = byCategory.get(cat) || [];
+        for (const item of items) {
+          const opt = document.createElement("option");
+          opt.value = item.subcategory;
+          opt.textContent = item.subcategory;
+          subcategorySelect.appendChild(opt);
+        }
+      }
+
+      // Set defaults based on AI suggestion
+      categorySelect.value = analysis.category;
+      populateSubcats(analysis.category);
+
+      // Try to default subcategory to predicted_issue if present
+      const predicted = (analysis.predicted_issue || "").toLowerCase();
+      for (const o of subcategorySelect.options) {
+        if (o.value.toLowerCase() === predicted) {
+          o.selected = true;
+          break;
+        }
+      }
+
+      // Update subcategories when category changes
+      categorySelect.onchange = () => {
+        populateSubcats(categorySelect.value);
+      };
+    } catch (e) {
+      console.warn("Failed to init category selectors", e);
+    }
+  }
+
   function resetAnalysis() {
     currentAnalysis = null;
     document.getElementById("analysisSection").classList.add("d-none");
     document.getElementById("resultSection").classList.add("d-none");
+
+    // Reset disabled states and texts
+    const editableDescription = document.getElementById("editableDescription");
+    if (editableDescription) editableDescription.disabled = false;
+    const voiceBtn = document.getElementById("voiceInputBtn");
+    if (voiceBtn) voiceBtn.disabled = false;
+    const submitBtn = document.getElementById("confirmSubmitBtn");
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "✅ Submit This Report";
+    }
+
+    // Reset category badge styling
+    const categoryBadge = document.getElementById("analyzedCategoryBadge");
+    if (categoryBadge) {
+      categoryBadge.classList.remove("bg-warning", "text-dark");
+      categoryBadge.classList.add("bg-primary");
+    }
   }
 
   // Voice Input Functions
@@ -544,6 +674,18 @@
       return;
     }
 
+    // Block submissions for non-civic detections
+    if (
+      currentAnalysis.is_civic === false ||
+      currentAnalysis.category === "non_civic"
+    ) {
+      showAlert(
+        "warning",
+        "Submission disabled: the image appears non-civic. Please upload a photo showing an actual civic problem."
+      );
+      return;
+    }
+
     const preview = document.getElementById("preview");
     if (!preview.src) {
       showAlert("warning", "Please select or capture an image first");
@@ -569,6 +711,25 @@
     ).value;
     if (editedDescription !== currentAnalysis.description) {
       formData.append("description", editedDescription);
+    }
+
+    // Category/subcategory override
+    const categorySelect = document.getElementById("categorySelect");
+    const subcategorySelect = document.getElementById("subcategorySelect");
+    if (categorySelect && subcategorySelect) {
+      if (
+        categorySelect.value &&
+        categorySelect.value !== currentAnalysis.category
+      ) {
+        formData.append("category_override", categorySelect.value);
+      }
+      const aiSub = (currentAnalysis.predicted_issue || "").toLowerCase();
+      if (
+        subcategorySelect.value &&
+        subcategorySelect.value.toLowerCase() !== aiSub
+      ) {
+        formData.append("subcategory_override", subcategorySelect.value);
+      }
     }
 
     // Show loading state
@@ -631,16 +792,33 @@
       '<span class="spinner-border spinner-border-sm"></span> Submitting...';
 
     try {
-      const response = await fetch("http://localhost:8000/complaints/raise", {
+      const response = await apiFetch("/complaints/raise", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        credentials: "include",
         body: formData,
       });
 
       const data = await response.json();
+      if (response.ok && data.duplicate === true && data.duplicate_of) {
+        // Store a notice so community page can show it
+        try {
+          sessionStorage.setItem(
+            "dupNotice",
+            JSON.stringify({
+              id: data.duplicate_of,
+              vote_count: data.vote_count,
+              message:
+                data.message ||
+                "Similar report found nearby. We've upvoted the existing report for you.",
+            })
+          );
+        } catch (_) {}
+
+        // Redirect to community with highlight parameter
+        window.location.href = `community.html?highlight=${encodeURIComponent(
+          data.duplicate_of
+        )}`;
+        return; // stop further handling
+      }
       if (response.ok) {
         showResult(data.complaint);
 

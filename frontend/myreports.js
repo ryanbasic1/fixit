@@ -63,13 +63,9 @@ async function loadMyReports() {
   }
 
   try {
-    const response = await fetch("http://localhost:8000/complaints/my", {
+    const response = await apiFetch("/complaints/my", {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
+      headers: { "Content-Type": "application/json" },
     });
 
     if (!response.ok) {
@@ -123,7 +119,7 @@ function displayMyReports(reports) {
         </div>
         
         <img 
-          src="http://localhost:8000${complaint.image_url}" 
+          src="${window.apiBase}${complaint.image_url}" 
           alt="${complaint.category}" 
           class="preview-image"
           onerror="this.src='https://via.placeholder.com/400x300?text=Image+Unavailable'"
@@ -148,21 +144,28 @@ function displayMyReports(reports) {
                 : ""
             }
           </div>
-          <div class="text-muted small mt-1">
-            <i class="bi bi-hand-thumbs-up"></i> Votes: ${
-              complaint.vote_count || 0
-            }
-            ${
-              complaint.ai_metadata?.ai_confidence
-                ? `
-              <span class="ms-3">
-                <i class="bi bi-robot"></i> AI Confidence: ${(
-                  complaint.ai_metadata.ai_confidence * 100
-                ).toFixed(1)}%
-              </span>
-            `
-                : ""
-            }
+          <div class="text-muted small mt-1 d-flex justify-content-between align-items-center">
+            <div>
+              <i class="bi bi-hand-thumbs-up"></i> Votes: ${
+                complaint.vote_count || 0
+              }
+              ${
+                complaint.ai_metadata?.ai_confidence
+                  ? `
+                <span class="ms-3">
+                  <i class="bi bi-robot"></i> AI Confidence: ${(
+                    complaint.ai_metadata.ai_confidence * 100
+                  ).toFixed(1)}%
+                </span>
+              `
+                  : ""
+              }
+            </div>
+            <button class="btn btn-outline-danger btn-sm" onclick="deleteComplaint(${
+              complaint.id
+            })">
+              <i class="bi bi-trash"></i> Delete
+            </button>
           </div>
         </div>
       </div>
@@ -207,15 +210,7 @@ async function loadCategoriesForFilter() {
   if (!token) return;
 
   try {
-    const response = await fetch(
-      "http://localhost:8000/complaints/categories",
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        credentials: "include",
-      }
-    );
+    const response = await apiFetch("/complaints/categories");
 
     if (response.ok) {
       const data = await response.json();
@@ -272,3 +267,27 @@ function showAlert(type, message) {
   document.getElementById("alertContainer").appendChild(alertDiv);
   setTimeout(() => alertDiv.remove(), 5000);
 }
+
+// Delete a complaint permanently
+async function deleteComplaint(id) {
+  if (!confirm("Delete this report permanently? This cannot be undone."))
+    return;
+  try {
+    const resp = await apiFetch(`/complaints/${id}`, { method: "DELETE" });
+    const data = await resp.json();
+    if (resp.ok && data.success) {
+      // Remove from local list and re-render
+      allMyReports = allMyReports.filter((c) => c.id !== id);
+      displayMyReports(allMyReports);
+      updateMyStats(allMyReports);
+      showAlert("success", "Report deleted successfully.");
+    } else {
+      showAlert("danger", data.detail || "Failed to delete report.");
+    }
+  } catch (e) {
+    console.error("Delete error", e);
+    showAlert("danger", "Error deleting report.");
+  }
+}
+// Expose for onclick
+window.deleteComplaint = deleteComplaint;

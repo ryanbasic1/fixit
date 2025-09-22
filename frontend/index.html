@@ -87,24 +87,48 @@
           <a class="nav-link" href="report.html">📝 Report Issue</a>
           <a class="nav-link" href="community.html">🌍 Community</a>
           <a class="nav-link" href="myreports.html">📋 My Reports</a>
-          
+          <a class="nav-link" href="profile.html">👤 Profile</a>
+
           <!-- Profile Section - Will be updated by JavaScript -->
           <div id="navProfileSection" class="d-flex align-items-center">
             <!-- When not logged in -->
             <div id="navLoginButtons" class="d-flex gap-2">
-              <button class="btn btn-outline-light btn-sm" onclick="showLoginModal()">Login</button>
-              <button class="btn btn-light btn-sm" onclick="showRegisterModal()">Register</button>
+              <button
+                class="btn btn-outline-light btn-sm"
+                onclick="showLoginModal()"
+              >
+                Login
+              </button>
+              <button
+                class="btn btn-light btn-sm"
+                onclick="showRegisterModal()"
+              >
+                Register
+              </button>
             </div>
-            
+
             <!-- When logged in -->
             <div id="navUserInfo" class="d-none dropdown">
-              <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                <i class="bi bi-person-circle"></i> <span id="navUsername">User</span>
+              <button
+                class="btn btn-outline-light dropdown-toggle"
+                type="button"
+                data-bs-toggle="dropdown"
+              >
+                <i class="bi bi-person-circle"></i>
+                <span id="navUsername">User</span>
               </button>
               <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="profile.html"><i class="bi bi-person"></i> Profile</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="#" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                <li>
+                  <a class="dropdown-item" href="profile.html"
+                    ><i class="bi bi-person"></i> Profile</a
+                  >
+                </li>
+                <li><hr class="dropdown-divider" /></li>
+                <li>
+                  <a class="dropdown-item" href="#" onclick="logout()"
+                    ><i class="bi bi-box-arrow-right"></i> Logout</a
+                  >
+                </li>
               </ul>
             </div>
           </div>
@@ -134,7 +158,10 @@
         <div class="row text-center mb-5">
           <div class="col-md-12">
             <h2>How Civic AI Works</h2>
-            <p class="lead">Report civic issues with AI-powered analysis and community engagement</p>
+            <p class="lead">
+              Report civic issues with AI-powered analysis and community
+              engagement
+            </p>
           </div>
         </div>
         <div class="row g-4">
@@ -143,7 +170,10 @@
               <div class="card-body text-center p-4">
                 <i class="bi bi-camera feature-icon"></i>
                 <h4>📸 Capture & Upload</h4>
-                <p>Take photos of civic issues using your camera or upload existing images</p>
+                <p>
+                  Take photos of civic issues using your camera or upload
+                  existing images
+                </p>
               </div>
             </div>
           </div>
@@ -152,7 +182,10 @@
               <div class="card-body text-center p-4">
                 <i class="bi bi-robot feature-icon"></i>
                 <h4>🤖 AI Analysis</h4>
-                <p>Our AI automatically analyzes images and suggests issue categories and descriptions</p>
+                <p>
+                  Our AI automatically analyzes images and suggests issue
+                  categories and descriptions
+                </p>
               </div>
             </div>
           </div>
@@ -161,7 +194,9 @@
               <div class="card-body text-center p-4">
                 <i class="bi bi-mic feature-icon"></i>
                 <h4>🎤 Voice Input</h4>
-                <p>Use voice-to-text to add descriptions quickly and conveniently</p>
+                <p>
+                  Use voice-to-text to add descriptions quickly and conveniently
+                </p>
               </div>
             </div>
           </div>
@@ -170,7 +205,9 @@
               <div class="card-body text-center p-4">
                 <i class="bi bi-geo-alt feature-icon"></i>
                 <h4>📍 Location Tracking</h4>
-                <p>Automatic GPS location capture for accurate issue reporting</p>
+                <p>
+                  Automatic GPS location capture for accurate issue reporting
+                </p>
               </div>
             </div>
           </div>
@@ -179,7 +216,10 @@
               <div class="card-body text-center p-4">
                 <i class="bi bi-people feature-icon"></i>
                 <h4>👥 Community Engagement</h4>
-                <p>Vote on community issues and track resolution progress together</p>
+                <p>
+                  Vote on community issues and track resolution progress
+                  together
+                </p>
               </div>
             </div>
           </div>
@@ -188,7 +228,10 @@
               <div class="card-body text-center p-4">
                 <i class="bi bi-speedometer2 feature-icon"></i>
                 <h4>📊 Real-time Tracking</h4>
-                <p>Monitor your reported issues and see status updates in real-time</p>
+                <p>
+                  Monitor your reported issues and see status updates in
+                  real-time
+                </p>
               </div>
             </div>
           </div>
@@ -220,12 +263,17 @@
     <section class="cta-section">
       <div class="container">
         <h2>Ready to Make a Difference?</h2>
-        <p class="lead">Join thousands of citizens improving their communities</p>
+        <p class="lead">
+          Join thousands of citizens improving their communities
+        </p>
         <div class="d-flex gap-3 justify-content-center">
           <button class="btn btn-light btn-lg" onclick="showRegisterModal()">
             <i class="bi bi-person-plus"></i> Get Started
           </button>
-          <button class="btn btn-outline-light btn-lg" onclick="showLoginModal()">
+          <button
+            class="btn btn-outline-light btn-lg"
+            onclick="showLoginModal()"
+          >
             <i class="bi bi-box-arrow-in-right"></i> Login
           </button>
         </div>
@@ -238,7 +286,10 @@
         <div class="row">
           <div class="col-md-6">
             <h5>🏛️ Civic AI</h5>
-            <p>Empowering citizens to improve their communities through technology.</p>
+            <p>
+              Empowering citizens to improve their communities through
+              technology.
+            </p>
           </div>
           <div class="col-md-6">
             <h6>Quick Links</h6>
@@ -249,9 +300,11 @@
             </div>
           </div>
         </div>
-        <hr class="my-3">
+        <hr class="my-3" />
         <div class="text-center">
-          <small>&copy; 2024 Civic AI. Built with ❤️ for better communities.</small>
+          <small
+            >&copy; 2024 Civic AI. Built with ❤️ for better communities.</small
+          >
         </div>
       </div>
     </footer>
@@ -262,17 +315,33 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">🔐 Login to Civic AI</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
           </div>
           <div class="modal-body">
             <form id="loginForm">
               <div class="mb-3">
                 <label for="loginUsername" class="form-label">� Username</label>
-                <input type="text" class="form-control" id="loginUsername" required />
+                <input
+                  type="text"
+                  class="form-control"
+                  id="loginUsername"
+                  required
+                />
               </div>
               <div class="mb-3">
-                <label for="loginPassword" class="form-label">🔒 Password</label>
-                <input type="password" class="form-control" id="loginPassword" required />
+                <label for="loginPassword" class="form-label"
+                  >🔒 Password</label
+                >
+                <input
+                  type="password"
+                  class="form-control"
+                  id="loginPassword"
+                  required
+                />
               </div>
               <button type="submit" class="btn btn-primary w-100">Login</button>
             </form>
@@ -287,19 +356,39 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">✨ Join Civic AI</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
           </div>
           <div class="modal-body">
             <form id="registerForm">
               <div class="mb-3">
-                <label for="registerUsername" class="form-label">👤 Username</label>
-                <input type="text" class="form-control" id="registerUsername" required />
+                <label for="registerUsername" class="form-label"
+                  >👤 Username</label
+                >
+                <input
+                  type="text"
+                  class="form-control"
+                  id="registerUsername"
+                  required
+                />
               </div>
               <div class="mb-3">
-                <label for="registerPassword" class="form-label">🔒 Password</label>
-                <input type="password" class="form-control" id="registerPassword" required />
+                <label for="registerPassword" class="form-label"
+                  >🔒 Password</label
+                >
+                <input
+                  type="password"
+                  class="form-control"
+                  id="registerPassword"
+                  required
+                />
               </div>
-              <button type="submit" class="btn btn-success w-100">Create Account</button>
+              <button type="submit" class="btn btn-success w-100">
+                Create Account
+              </button>
             </form>
           </div>
         </div>
@@ -312,160 +401,49 @@
     <script src="script.js"></script>
     <script>
       // Landing page specific functionality
-      document.addEventListener('DOMContentLoaded', function() {
+      document.addEventListener("DOMContentLoaded", function () {
         // Load real stats if available
         loadLandingStats();
-        
+
         // Auto-update stats every 30 seconds
         setInterval(loadLandingStats, 30000);
-        
+
         // Check authentication status and update navbar
         checkAuthStatus();
       });
 
       async function loadLandingStats() {
         try {
-          const response = await fetch('http://localhost:8000/api/complaints/public?limit=1000');
+          const base =
+            window.apiBase ||
+            location.protocol + "//" + location.hostname + ":8000";
+          const response = await fetch(base + "/complaints/public?limit=1000");
           if (response.ok) {
             const data = await response.json();
             const totalIssues = data.complaints.length;
-            const resolvedIssues = data.complaints.filter(c => c.status === 'resolved').length;
-            
-            document.getElementById('totalIssuesReported').textContent = totalIssues.toLocaleString();
-            document.getElementById('issuesResolved').textContent = resolvedIssues.toLocaleString();
-            
+            const resolvedIssues = data.complaints.filter(
+              (c) => c.status === "resolved"
+            ).length;
+
+            document.getElementById("totalIssuesReported").textContent =
+              totalIssues.toLocaleString();
+            document.getElementById("issuesResolved").textContent =
+              resolvedIssues.toLocaleString();
+
             // Simulate active users count (in real app, this would come from analytics)
             const activeUsers = Math.floor(totalIssues * 0.3);
-            document.getElementById('activeUsers').textContent = activeUsers.toLocaleString();
+            document.getElementById("activeUsers").textContent =
+              activeUsers.toLocaleString();
           }
         } catch (error) {
-          console.log('Could not load stats, using default values');
+          console.log("Could not load stats, using default values");
         }
       }
 
       function checkAuthStatus() {
-        const token = localStorage.getItem('token');
-        const navbar = document.querySelector('.navbar-nav');
-        
-        if (token) {
-          // User is logged in, show profile option
-          navbar.innerHTML = `
-            <a class="nav-link" href="report.html">📝 Report Issue</a>
-            <a class="nav-link" href="community.html">🌍 Community</a>
-            <a class="nav-link" href="myreports.html">📋 My Reports</a>
-            <a class="nav-link" href="profile.html">👤 Profile</a>
-          `;
-        } else {
-          // User not logged in, show login/register
-          navbar.innerHTML = `
-            <a class="nav-link" href="report.html">📝 Report Issue</a>
-            <a class="nav-link" href="community.html">🌍 Community</a>
-            <button class="btn btn-outline-light me-2" onclick="showLoginModal()">Login</button>
-            <button class="btn btn-light" onclick="showRegisterModal()">Register</button>
-          `;
-        }
+        // Navbar is already handled by shared script.js (setupUI)
+        // This function is left for backwards-compatibility and future use.
       }
     </script>
-  </body>
-</html>
-
-    <!-- Login Modal -->
-    <div class="modal fade" id="loginModal" tabindex="-1">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Login</h5>
-            <button
-              type="button"
-              class="btn-close"
-              data-bs-dismiss="modal"
-            ></button>
-          </div>
-          <div class="modal-body">
-            <div class="mb-3">
-              <input
-                type="text"
-                class="form-control"
-                id="loginUsername"
-                placeholder="Username"
-              />
-            </div>
-            <div class="mb-3">
-              <input
-                type="password"
-                class="form-control"
-                id="loginPassword"
-                placeholder="Password"
-              />
-            </div>
-            <div id="loginMessage"></div>
-          </div>
-          <div class="modal-footer">
-            <button
-              type="button"
-              class="btn btn-secondary"
-              data-bs-dismiss="modal"
-            >
-              Close
-            </button>
-            <button type="button" class="btn btn-primary" onclick="login()">
-              Login
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Register Modal -->
-    <div class="modal fade" id="registerModal" tabindex="-1">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Register</h5>
-            <button
-              type="button"
-              class="btn-close"
-              data-bs-dismiss="modal"
-            ></button>
-          </div>
-          <div class="modal-body">
-            <div class="mb-3">
-              <input
-                type="text"
-                class="form-control"
-                id="regUsername"
-                placeholder="Username"
-              />
-            </div>
-            <div class="mb-3">
-              <input
-                type="password"
-                class="form-control"
-                id="regPassword"
-                placeholder="Password"
-              />
-            </div>
-            <div id="registerMessage"></div>
-          </div>
-          <div class="modal-footer">
-            <button
-              type="button"
-              class="btn btn-secondary"
-              data-bs-dismiss="modal"
-            >
-              Close
-            </button>
-            <button type="button" class="btn btn-primary" onclick="register()">
-              Register
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="script.js"></script>
-    <script src="dashboard.js"></script>
   </body>
 </html>

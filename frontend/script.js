@@ -3,6 +3,55 @@ let videoStream = null;
 let token = localStorage.getItem("token");
 let currentAnalysis = null; // Store current analysis results
 
+// Centralized API base + fetch helper
+const defaultApiBase =
+  window.location.hostname && window.location.protocol.startsWith("http")
+    ? `${window.location.protocol}//${window.location.hostname}:8000`
+    : "http://localhost:8000";
+const apiBase = localStorage.getItem("apiBase") || defaultApiBase;
+window.apiBase = apiBase; // expose for inline scripts
+
+async function apiFetch(path, options = {}) {
+  const url = path.startsWith("http") ? path : `${apiBase}${path}`;
+  const headers = new Headers(options.headers || {});
+  // Always accept JSON
+  if (!headers.has("Accept")) headers.set("Accept", "application/json");
+  // Add bearer token if available and not already provided
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  const fetchOptions = {
+    credentials: "include",
+    ...options,
+    headers,
+  };
+
+  const res = await fetch(url, fetchOptions);
+  if (res.status === 401) {
+    // Session expired / unauthorized
+    localStorage.removeItem("token");
+    localStorage.removeItem("username");
+    token = null;
+    setupUI();
+    // Inform the user and prompt login
+    try {
+      const alertDiv = document.createElement("div");
+      alertDiv.className = "alert alert-warning alert-dismissible fade show";
+      alertDiv.innerHTML = `
+        <i class="bi bi-exclamation-triangle"></i> Your session has expired. Please log in again.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      `;
+      const container = document.getElementById("alertContainer");
+      if (container) container.appendChild(alertDiv);
+      setTimeout(() => alertDiv.remove(), 4000);
+    } catch (_) {}
+    if (typeof showLoginModal === "function") showLoginModal();
+    throw new Error("Unauthorized");
+  }
+  return res;
+}
+window.apiFetch = apiFetch;
+
 // Event Listeners
 document.addEventListener("DOMContentLoaded", () => {
   // Check if this is a first-time user (unless they're already on welcome page)
@@ -65,12 +114,42 @@ function setupGeneralEventListeners() {
       }
     });
   }
+
+  // Hook login/register modal forms if present to prevent full page reload
+  const loginForm = document.getElementById("loginForm");
+  if (loginForm) {
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = loginForm.querySelector('button[type="submit"]');
+      if (btn) btn.disabled = true;
+      try {
+        await login();
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    });
+  }
+
+  const registerForm = document.getElementById("registerForm");
+  if (registerForm) {
+    registerForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = registerForm.querySelector('button[type="submit"]');
+      if (btn) btn.disabled = true;
+      try {
+        await register();
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    });
+  }
 }
 
 // UI Setup
 function setupUI() {
   const isLoggedIn = !!token;
   const username = localStorage.getItem("username");
+  const isAdmin = localStorage.getItem("is_admin") === "1";
 
   // Update navbar profile section (new approach)
   const navLoginButtons = document.getElementById("navLoginButtons");
@@ -84,9 +163,21 @@ function setupUI() {
       if (navUsername && username) {
         navUsername.textContent = username;
       }
+      // Inject Admin link if admin
+      const navContainer = document.querySelector(".navbar-nav.ms-auto");
+      if (isAdmin && navContainer && !document.getElementById("navAdminLink")) {
+        const a = document.createElement("a");
+        a.id = "navAdminLink";
+        a.className = "nav-link";
+        a.href = "admin.html";
+        a.textContent = "🛠️ Admin";
+        navContainer.appendChild(a);
+      }
     } else {
       navLoginButtons.classList.remove("d-none");
       navUserInfo.classList.add("d-none");
+      const existing = document.getElementById("navAdminLink");
+      if (existing) existing.remove();
     }
   }
 
@@ -134,8 +225,10 @@ async function register() {
   const password = document.getElementById("registerPassword").value;
 
   if (!username || !password) {
-    document.getElementById("registerMessage").innerHTML =
-      '<div class="alert alert-danger">Please enter both username and password.</div>';
+    setInlineOrAlert(
+      "registerMessage",
+      '<div class="alert alert-danger">Please enter both username and password.</div>'
+    );
     return;
   }
 
@@ -145,32 +238,36 @@ async function register() {
     formData.append("password", password);
     // Note: Using username as email since the backend expects it
 
-    const response = await fetch("http://localhost:8000/auth/register", {
+    const response = await apiFetch("/auth/register", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
       },
-      credentials: "include",
       body: formData,
     });
 
     const data = await response.json();
     if (response.ok) {
-      document.getElementById("registerMessage").innerHTML =
-        '<div class="alert alert-success">Registration successful! Please login.</div>';
+      setInlineOrAlert(
+        "registerMessage",
+        '<div class="alert alert-success">Registration successful! Please login.</div>',
+        "success"
+      );
       setTimeout(() => {
-        $("#registerModal").modal("hide");
-        $("#loginModal").modal("show");
+        hideBsModal("registerModal");
+        showBsModal("loginModal");
       }, 1500);
     } else {
-      document.getElementById(
-        "registerMessage"
-      ).innerHTML = `<div class="alert alert-danger">${data.detail}</div>`;
+      setInlineOrAlert(
+        "registerMessage",
+        `<div class="alert alert-danger">${data.detail}</div>`
+      );
     }
   } catch (error) {
-    document.getElementById("registerMessage").innerHTML =
-      '<div class="alert alert-danger">Registration failed. Please try again.</div>';
+    setInlineOrAlert(
+      "registerMessage",
+      '<div class="alert alert-danger">Registration failed. Please try again.</div>'
+    );
     console.error("Registration error:", error);
   }
 }
@@ -184,13 +281,11 @@ async function login() {
     formData.append("username", username);
     formData.append("password", password);
 
-    const response = await fetch("http://localhost:8000/auth/token", {
+    const response = await apiFetch("/auth/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
       },
-      credentials: "include",
       body: formData,
     });
 
@@ -199,7 +294,10 @@ async function login() {
       token = data.access_token;
       localStorage.setItem("token", token);
       localStorage.setItem("username", username); // Store username for profile display
-      $("#loginModal").modal("hide");
+      if (typeof data.is_admin !== "undefined") {
+        localStorage.setItem("is_admin", data.is_admin ? "1" : "0");
+      }
+      hideBsModal("loginModal");
 
       // Update UI and load data
       setupUI();
@@ -213,18 +311,22 @@ async function login() {
       const alertDiv = document.createElement("div");
       alertDiv.className = "alert alert-success alert-dismissible fade show";
       alertDiv.innerHTML = `
-        Welcome back, ${data.username}!
+        Welcome back, ${username}!
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
       `;
       document.getElementById("alertContainer").appendChild(alertDiv);
       setTimeout(() => alertDiv.remove(), 5000);
     } else {
-      document.getElementById("loginMessage").innerHTML =
-        '<div class="alert alert-danger">Login failed. Please check your credentials.</div>';
+      setInlineOrAlert(
+        "loginMessage",
+        '<div class="alert alert-danger">Login failed. Please check your credentials.</div>'
+      );
     }
   } catch (error) {
-    document.getElementById("loginMessage").innerHTML =
-      '<div class="alert alert-danger">Login failed. Please try again.</div>';
+    setInlineOrAlert(
+      "loginMessage",
+      '<div class="alert alert-danger">Login failed. Please try again.</div>'
+    );
     console.error("Login error:", error);
   }
 }
@@ -398,12 +500,8 @@ async function analyzeImage() {
 
     console.log("Making fetch request to analyze endpoint");
 
-    const response = await fetch("http://localhost:8000/classifier/analyze", {
+    const response = await apiFetch("/classifier/analyze", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      credentials: "include",
       body: formData,
     });
 
@@ -768,12 +866,8 @@ async function submitComplaint() {
     '<span class="spinner-border spinner-border-sm"></span> Submitting...';
 
   try {
-    const response = await fetch("http://localhost:8000/complaints/raise", {
+    const response = await apiFetch("/complaints/raise", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      credentials: "include",
       body: formData,
     });
 
@@ -877,13 +971,9 @@ async function loadComplaints() {
   }
 
   try {
-    const response = await fetch("http://localhost:8000/complaints/my", {
+    const response = await apiFetch("/complaints/my", {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
+      headers: { "Content-Type": "application/json" },
     });
 
     const data = await response.json();
@@ -936,7 +1026,7 @@ function displayComplaints(complaints) {
         </div>
         
         <img 
-          src="http://localhost:8000${complaint.image_url}" 
+          src="${apiBase}${complaint.image_url}" 
           alt="${complaint.category}" 
           class="preview-image"
           onerror="this.src='https://via.placeholder.com/400x300?text=Image+Unavailable'"
@@ -983,12 +1073,45 @@ function getStatusColor(status) {
 // Modal Functions
 
 function showLoginModal() {
-  $("#loginModal").modal("show");
+  showBsModal("loginModal");
 }
 
 function showRegisterModal() {
-  $("#registerModal").modal("show");
+  showBsModal("registerModal");
 }
 
 // Make resetAnalysis available globally for HTML onclick
 window.resetAnalysis = resetAnalysis;
+
+// Bootstrap 5 modal helpers (no jQuery dependency)
+function showBsModal(id) {
+  const el = document.getElementById(id);
+  if (!el || typeof bootstrap === "undefined") return;
+  const modal = bootstrap.Modal.getOrCreateInstance(el);
+  modal.show();
+}
+
+function hideBsModal(id) {
+  const el = document.getElementById(id);
+  if (!el || typeof bootstrap === "undefined") return;
+  const modal = bootstrap.Modal.getOrCreateInstance(el);
+  modal.hide();
+}
+
+// Helper to write into an inline message container if present; otherwise show a global alert
+function setInlineOrAlert(targetId, html, type = "danger") {
+  const el = document.getElementById(targetId);
+  if (el) {
+    el.innerHTML = html;
+    return;
+  }
+  const alertDiv = document.createElement("div");
+  alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+  alertDiv.innerHTML = `
+    ${html}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  `;
+  const container = document.getElementById("alertContainer");
+  (container || document.body).appendChild(alertDiv);
+  setTimeout(() => alertDiv.remove(), 4000);
+}

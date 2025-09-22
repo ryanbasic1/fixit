@@ -43,3 +43,20 @@ button:hover {
   margin-top: 20px;
   font-weight: bold;
 }
+
+/* Highlight pulse for redirected duplicates on community page */
+.highlight-pulse {
+  animation: pulseBorder 0.8s ease-in-out 0s 4 alternate;
+  box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.6);
+}
+
+@keyframes pulseBorder {
+  from {
+    box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.6);
+    transform: translateY(-2px);
+  }
+  to {
+    box-shadow: 0 0 20px 6px rgba(13, 110, 253, 0.3);
+    transform: translateY(0);
+  }
+}
