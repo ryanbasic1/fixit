@@ -6,6 +6,7 @@ from .database import create_tables
 from .routes_auth import router as auth_router
 from .routes_complaints import router as complaints_router
 from .routes_admin import router as admin_router
+from .routes_users import router as users_router
 from .routes_classifier import router as classifier_router
 
 app = FastAPI(title="Civic AI Backend", version="1.0.0")
@@ -39,6 +40,7 @@ app.include_router(auth_router)
 app.include_router(complaints_router)
 app.include_router(admin_router)
 app.include_router(classifier_router)
+app.include_router(users_router)
 
 @app.get("/")
 async def root():

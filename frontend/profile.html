@@ -123,6 +123,10 @@
               >
                 <i class="bi bi-person-circle"></i>
                 <span id="navUsername">User</span>
+                <span class="badge bg-warning text-dark ms-2">
+                  <i class="bi bi-star-fill"></i>
+                  <span id="navPoints">0</span> pts
+                </span>
               </button>
               <ul class="dropdown-menu dropdown-menu-end">
                 <li>
@@ -177,6 +181,15 @@
                     <i class="bi bi-person-fill"></i>
                   </div>
                   <h3 id="userName">User Name</h3>
+                  <div id="userRewardWrap" class="mt-1 d-none">
+                    <span
+                      class="badge bg-warning text-dark"
+                      id="userRewardBadge"
+                    >
+                      <i class="bi bi-trophy-fill"></i>
+                      <span id="userRewardText">Reward</span>
+                    </span>
+                  </div>
                   <p id="userEmail">user@example.com</p>
                   <small>
                     Member since
@@ -211,6 +224,19 @@
                 <p>Community Impact</p>
                 <small class="text-muted">Votes received</small>
               </div>
+              <div class="stat-card">
+                <h3 id="rewardPoints">0</h3>
+                <p>Reward Points</p>
+                <small class="text-muted">Earned by contributions</small>
+                <div class="mt-2">
+                  <button
+                    id="viewRewardsBtn"
+                    class="btn btn-sm btn-outline-primary"
+                  >
+                    <i class="bi bi-trophy"></i> See rewards earned
+                  </button>
+                </div>
+              </div>
             </div>
 
             <!-- Recent Activity -->
@@ -221,6 +247,26 @@
                 </h5>
                 <div id="recentActivity">
                   <!-- Dynamic content loaded here -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Rewards List -->
+            <div class="card mt-4 d-none" id="rewardsCard">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                  <h5 class="card-title">
+                    <i class="bi bi-trophy"></i> Rewards Earned
+                  </h5>
+                  <button
+                    id="hideRewardsBtn"
+                    class="btn btn-sm btn-outline-secondary"
+                  >
+                    Hide
+                  </button>
+                </div>
+                <div id="rewardsList" class="mt-2">
+                  <!-- Filled dynamically -->
                 </div>
               </div>
             </div>
@@ -526,6 +572,14 @@
         profileContent.classList.remove("d-none");
         loadUserProfile();
         loadUserStats();
+
+        const btn = document.getElementById("viewRewardsBtn");
+        if (btn) btn.addEventListener("click", toggleRewards);
+        const hideBtn = document.getElementById("hideRewardsBtn");
+        if (hideBtn)
+          hideBtn.addEventListener("click", () => {
+            document.getElementById("rewardsCard").classList.add("d-none");
+          });
       });
 
       async function loadUserProfile() {
@@ -533,14 +587,25 @@
         if (!token) return;
 
         try {
-          // For now, we'll show basic info since the backend doesn't have a user profile endpoint
-          // In a real app, you'd fetch from /auth/profile or similar
-          const username = localStorage.getItem("username") || "User";
-          document.getElementById("userName").textContent = username;
-          document.getElementById("userEmail").textContent =
-            username + "@civic.ai"; // Mock email
-          document.getElementById("memberSince").textContent =
-            new Date().toLocaleDateString();
+          // Load user info
+          const meRes = await apiFetch("/auth/me");
+          if (meRes.ok) {
+            const me = await meRes.json();
+            const username =
+              me.username || localStorage.getItem("username") || "User";
+            document.getElementById("userName").textContent = username;
+            document.getElementById("userEmail").textContent =
+              me.email || username + "@civic.ai";
+            document.getElementById("memberSince").textContent =
+              new Date().toLocaleDateString();
+            if (me.demo_reward) {
+              document.getElementById("userRewardText").textContent =
+                me.demo_reward;
+              document
+                .getElementById("userRewardWrap")
+                .classList.remove("d-none");
+            }
+          }
         } catch (error) {
           console.error("Error loading profile:", error);
         }
@@ -573,9 +638,72 @@
             document.getElementById("resolvedReports").textContent =
               resolvedReports;
             document.getElementById("totalVotes").textContent = totalVotes;
+            // Also load reward points
+            try {
+              const meRes = await apiFetch("/auth/me");
+              if (meRes.ok) {
+                const me = await meRes.json();
+                if (typeof me.points === "number") {
+                  document.getElementById("rewardPoints").textContent =
+                    me.points;
+                }
+              }
+            } catch (e) {}
           }
         } catch (error) {
           console.error("Error loading user stats:", error);
+        }
+      }
+
+      async function toggleRewards() {
+        const card = document.getElementById("rewardsCard");
+        card.classList.toggle("d-none");
+        if (!card.classList.contains("d-none")) {
+          await loadRewards();
+        }
+      }
+
+      async function loadRewards() {
+        try {
+          const res = await apiFetch("/users/rewards");
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || "Failed to load rewards");
+          const list = document.getElementById("rewardsList");
+          list.innerHTML = "";
+          if (!data.rewards || !data.rewards.length) {
+            list.innerHTML = '<div class="text-muted">No rewards yet.</div>';
+            return;
+          }
+          data.rewards.forEach((r) => {
+            const div = document.createElement("div");
+            div.className = "activity-item";
+            div.innerHTML = `
+              <div class="d-flex justify-content-between">
+                <div>
+                  <strong>${r.label}</strong>
+                  ${
+                    r.description
+                      ? `<div class="small text-muted">${r.description}</div>`
+                      : ""
+                  }
+                  ${
+                    typeof r.points === "number"
+                      ? `<span class="badge bg-info mt-1">+${r.points} pts</span>`
+                      : ""
+                  }
+                </div>
+                <div class="text-muted small text-end">
+                  <div title="Awarded by">🏅 ${r.awarded_by || "admin"}</div>
+                  <div>${new Date(r.created_at).toLocaleString()}</div>
+                </div>
+              </div>`;
+            list.appendChild(div);
+          });
+        } catch (e) {
+          const list = document.getElementById("rewardsList");
+          list.innerHTML = `<div class="text-danger">${
+            e.message || "Failed to load rewards"
+          }</div>`;
         }
       }
 

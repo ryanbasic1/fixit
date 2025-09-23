@@ -11,6 +11,25 @@ const defaultApiBase =
 const apiBase = localStorage.getItem("apiBase") || defaultApiBase;
 window.apiBase = apiBase; // expose for inline scripts
 
+// Enforce logout on new browser session:
+// If the app is opened after the browser/tab was closed, sessionStorage is empty.
+// On first load of a session, clear any persisted auth so the user must log in again.
+(function enforceNewSessionLogout() {
+  try {
+    const sessionFlag = sessionStorage.getItem("sessionActive");
+    if (!sessionFlag) {
+      // New browser session detected -> clear any stale login
+      localStorage.removeItem("token");
+      localStorage.removeItem("username");
+      localStorage.removeItem("is_admin");
+      token = null;
+      sessionStorage.setItem("sessionActive", "1");
+    }
+  } catch (_) {
+    // If storage isn't available, do nothing
+  }
+})();
+
 async function apiFetch(path, options = {}) {
   const url = path.startsWith("http") ? path : `${apiBase}${path}`;
   const headers = new Headers(options.headers || {});
@@ -54,12 +73,12 @@ window.apiFetch = apiFetch;
 
 // Event Listeners
 document.addEventListener("DOMContentLoaded", () => {
-  // Check if this is a first-time user (unless they're already on welcome page)
+  // Redirect first-time users to welcome page (including index)
   const hasSeenWelcome = localStorage.getItem("hasSeenWelcome");
-  const isOnWelcomePage = window.location.pathname.includes("welcome.html");
+  const path = window.location.pathname || "";
+  const isOnWelcomePage = path.includes("welcome.html");
 
   if (!hasSeenWelcome && !isOnWelcomePage) {
-    // Redirect first-time users to welcome page
     window.location.href = "welcome.html";
     return;
   }
@@ -155,6 +174,7 @@ function setupUI() {
   const navLoginButtons = document.getElementById("navLoginButtons");
   const navUserInfo = document.getElementById("navUserInfo");
   const navUsername = document.getElementById("navUsername");
+  const navPoints = document.getElementById("navPoints");
 
   if (navLoginButtons && navUserInfo) {
     if (isLoggedIn) {
@@ -163,6 +183,8 @@ function setupUI() {
       if (navUsername && username) {
         navUsername.textContent = username;
       }
+      // Optionally show points next to username if element exists
+      refreshNavPoints();
       // Inject Admin link if admin
       const navContainer = document.querySelector(".navbar-nav.ms-auto");
       if (isAdmin && navContainer && !document.getElementById("navAdminLink")) {
@@ -173,6 +195,9 @@ function setupUI() {
         a.textContent = "🛠️ Admin";
         navContainer.appendChild(a);
       }
+      // Remove Admin Login link if present (not needed when logged-in admin)
+      const adminLoginLink = document.getElementById("navAdminLoginLink");
+      if (isAdmin && adminLoginLink) adminLoginLink.remove();
     } else {
       navLoginButtons.classList.remove("d-none");
       navUserInfo.classList.add("d-none");
@@ -180,6 +205,34 @@ function setupUI() {
       if (existing) existing.remove();
     }
   }
+
+  // Provide a dedicated "Admin Login" entry for professionalism
+  // Visible when not logged in OR logged in as non-admin
+  try {
+    const navContainer = document.querySelector(".navbar-nav.ms-auto");
+    if (navContainer) {
+      let adminLoginLink = document.getElementById("navAdminLoginLink");
+      const isAdmin = localStorage.getItem("is_admin") === "1";
+      if (!isAdmin) {
+        if (!adminLoginLink) {
+          adminLoginLink = document.createElement("a");
+          adminLoginLink.id = "navAdminLoginLink";
+          adminLoginLink.className = "nav-link";
+          adminLoginLink.href = "#";
+          adminLoginLink.textContent = "🔐 Admin Login";
+          adminLoginLink.addEventListener("click", (e) => {
+            e.preventDefault();
+            adminLoginFlow();
+          });
+          navContainer.appendChild(adminLoginLink);
+        } else {
+          adminLoginLink.classList.remove("d-none");
+        }
+      } else if (adminLoginLink) {
+        adminLoginLink.remove();
+      }
+    }
+  } catch (_) {}
 
   // Update auth buttons (legacy - for pages that still use this pattern)
   const authButtons = document.getElementById("authButtons");
@@ -217,6 +270,21 @@ function setupUI() {
       </div>
     `;
   }
+}
+// Helper to refresh navbar points badge
+async function refreshNavPoints() {
+  const navPoints = document.getElementById("navPoints");
+  if (!navPoints) return;
+  try {
+    const r = await apiFetch("/auth/me");
+    if (!r.ok) return;
+    const me = await r.json();
+    if (typeof me.points === "number") {
+      navPoints.textContent = me.points.toString();
+      const wrap = navPoints.closest(".d-none");
+      if (wrap) wrap.classList.remove("d-none");
+    }
+  } catch (_) {}
 }
 
 // Authentication Functions
@@ -297,7 +365,47 @@ async function login() {
       if (typeof data.is_admin !== "undefined") {
         localStorage.setItem("is_admin", data.is_admin ? "1" : "0");
       }
+      // Mark session active (prevents auto-logout within the same tab session)
+      try {
+        sessionStorage.setItem("sessionActive", "1");
+      } catch (_) {}
       hideBsModal("loginModal");
+
+      // Handle admin-required redirect intent (from Admin Login link)
+      const requireAdmin = sessionStorage.getItem("requireAdmin") === "1";
+      const postLoginRedirect = sessionStorage.getItem("postLoginRedirect");
+
+      if (requireAdmin) {
+        // Clear flags regardless
+        sessionStorage.removeItem("requireAdmin");
+        sessionStorage.removeItem("postLoginRedirect");
+        if (data.is_admin) {
+          // Go straight to admin dashboard
+          window.location.href = postLoginRedirect || "admin.html";
+          return; // Stop further UI work on this page
+        } else {
+          // Inform user that admin access is required
+          const alertDiv = document.createElement("div");
+          alertDiv.className = "alert alert-danger alert-dismissible fade show";
+          alertDiv.innerHTML = `
+            <i class="bi bi-shield-lock"></i> Admin access required. You are logged in as a regular user.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          `;
+          const container = document.getElementById("alertContainer");
+          (container || document.body).appendChild(alertDiv);
+          setTimeout(() => alertDiv.remove(), 5000);
+        }
+      } else if (postLoginRedirect) {
+        sessionStorage.removeItem("postLoginRedirect");
+        window.location.href = postLoginRedirect;
+        return;
+      }
+
+      // If this is an admin and no specific redirect is requested, take them to the Admin dashboard by default
+      if (data.is_admin) {
+        window.location.href = "admin.html";
+        return;
+      }
 
       // Update UI and load data
       setupUI();
@@ -335,6 +443,12 @@ function logout() {
   localStorage.removeItem("token");
   localStorage.removeItem("username"); // Also remove stored username
   token = null;
+  try {
+    localStorage.removeItem("is_admin");
+    sessionStorage.removeItem("sessionActive");
+    sessionStorage.removeItem("postLoginRedirect");
+    sessionStorage.removeItem("requireAdmin");
+  } catch (_) {}
   setupUI();
 
   // Clear both complaint lists
@@ -365,6 +479,11 @@ function logout() {
   document.getElementById("preview").classList.add("d-none");
   document.getElementById("preview").src = "";
   document.getElementById("resultSection").classList.add("d-none");
+
+  // Navigate back to index (which will redirect to welcome if applicable)
+  try {
+    window.location.href = "index.html";
+  } catch (_) {}
 }
 
 // Camera Functions
@@ -875,6 +994,8 @@ async function submitComplaint() {
     if (response.ok) {
       showResult(data.complaint);
       loadComplaints();
+      // After successful submission, refresh points badge
+      refreshNavPoints();
 
       // Hide analysis section and show success
       document.getElementById("analysisSection").classList.add("d-none");
@@ -1078,6 +1199,47 @@ function showLoginModal() {
 
 function showRegisterModal() {
   showBsModal("registerModal");
+}
+
+// User Login flow helper: sets redirect to community after login
+function userLoginFlow() {
+  // If already logged in, just go to community
+  if (token) {
+    window.location.href = "community.html";
+    return;
+  }
+  sessionStorage.setItem("postLoginRedirect", "community.html");
+  sessionStorage.removeItem("requireAdmin");
+  showLoginModal();
+}
+
+// Admin Login flow helper: opens login (or redirects if already admin)
+function adminLoginFlow() {
+  const isAdmin = localStorage.getItem("is_admin") === "1";
+  if (token && isAdmin) {
+    // Already an admin - go to dashboard
+    window.location.href = "admin.html";
+    return;
+  }
+
+  // Set intent to land on admin page after successful admin auth
+  sessionStorage.setItem("postLoginRedirect", "admin.html");
+  sessionStorage.setItem("requireAdmin", "1");
+
+  // If currently logged in but not admin, inform user they need admin credentials
+  if (token && !isAdmin) {
+    const alertDiv = document.createElement("div");
+    alertDiv.className = "alert alert-info alert-dismissible fade show";
+    alertDiv.innerHTML = `
+      <i class="bi bi-info-circle"></i> Please sign in with an admin account to continue.
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    const container = document.getElementById("alertContainer");
+    (container || document.body).appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 4000);
+  }
+
+  showLoginModal();
 }
 
 // Make resetAnalysis available globally for HTML onclick

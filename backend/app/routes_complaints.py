@@ -1,6 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, case
 from pathlib import Path
 import shutil
 import uuid
@@ -9,7 +9,10 @@ from typing import Optional, List
 from datetime import datetime, timedelta
 import io, math
 from PIL import Image as PILImage
-from .database import get_db, Complaint, User, Vote
+from .database import get_db, Complaint, User, Vote, auto_assign_demo_reward
+POINTS_REPORT_CREATED = 10
+POINTS_VOTE_CAST = 1
+POINTS_RECEIVE_VOTE = 2
 from .classifier import classify_image
 from .templates import create_issue_report, mapping
 from .routes_auth import get_current_user
@@ -54,6 +57,39 @@ def phash_hamming_dist(hex1: str, hex2: str) -> int:
     if not hex1 or not hex2:
         return 999
     return bin(int(hex1, 16) ^ int(hex2, 16)).count("1")
+
+@router.get("/stats")
+async def get_public_statistics(
+    days: Optional[int] = 30,
+    db: Session = Depends(get_db)
+):
+    """Public statistics for landing page and general dashboards.
+    Returns totals over the last `days` (default 30). No auth required.
+    """
+    cutoff = datetime.utcnow() - timedelta(days=days) if days else None
+
+    total_q = db.query(func.count(Complaint.id))
+    resolved_q = db.query(func.count(Complaint.id)).filter(Complaint.status == "resolved")
+    active_users_q = db.query(func.count(func.distinct(Complaint.user_id)))
+
+    if cutoff:
+        total_q = total_q.filter(Complaint.created_at >= cutoff)
+        resolved_q = resolved_q.filter(Complaint.created_at >= cutoff)
+        active_users_q = active_users_q.filter(Complaint.created_at >= cutoff)
+
+    total = total_q.scalar() or 0
+    resolved = resolved_q.scalar() or 0
+    active_users = active_users_q.scalar() or 0
+
+    return {
+        "success": True,
+        "period_days": days,
+        "statistics": {
+            "total_complaints": total,
+            "resolved": resolved,
+            "active_users": active_users,
+        },
+    }
 
 @router.get("/categories")
 async def get_categories(
@@ -267,6 +303,12 @@ async def raise_complaint(
         )
         
         db.add(complaint)
+        # Award points to the reporting user
+        try:
+            current_user.points = (current_user.points or 0) + POINTS_REPORT_CREATED
+            auto_assign_demo_reward(db, current_user, awarded_by="system")
+        except Exception:
+            pass
         db.commit()
         db.refresh(complaint)
 
@@ -362,17 +404,17 @@ async def get_public_complaints(
     if sort_by == "votes":
         query = query.order_by(desc(Complaint.vote_count))
     elif sort_by == "priority":
-        # Custom priority ordering (Critical > High > Medium > Low)
-        priority_case = {
-            "Critical": 4,
-            "High": 3,
-            "Medium": 2,
-            "Low": 1
-        }
-        query = query.order_by(
-            func.case(priority_case, value=Complaint.priority).desc(),
-            desc(Complaint.vote_count)
+        # Custom priority ordering (Critical > High > Medium > Low) using SQLAlchemy case
+        case_expr = case(
+            (
+                (Complaint.priority == "Critical", 4),
+                (Complaint.priority == "High", 3),
+                (Complaint.priority == "Medium", 2),
+                (Complaint.priority == "Low", 1),
+            ),
+            else_=0,
         )
+        query = query.order_by(case_expr.desc(), desc(Complaint.vote_count))
     else:  # default to latest
         query = query.order_by(desc(Complaint.created_at))
 
@@ -437,6 +479,16 @@ async def vote_complaint(
         db.add(new_vote)
         complaint.vote_count += 1
         action = "added"
+        # Award points: voter gets small points; owner gets more
+        try:
+            owner = db.query(User).filter(User.id == complaint.user_id).first()
+            if owner:
+                owner.points = (owner.points or 0) + POINTS_RECEIVE_VOTE
+                auto_assign_demo_reward(db, owner, awarded_by="system")
+            current_user.points = (current_user.points or 0) + POINTS_VOTE_CAST
+            auto_assign_demo_reward(db, current_user, awarded_by="system")
+        except Exception:
+            pass
     
     db.commit()
     

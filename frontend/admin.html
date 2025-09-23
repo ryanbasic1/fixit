@@ -23,8 +23,6 @@
       <div class="container">
         <a class="navbar-brand" href="index.html">🏛️ Civic AI</a>
         <div class="navbar-nav ms-auto">
-          <a class="nav-link" href="community.html">🌍 Community</a>
-          <a class="nav-link" href="myreports.html">📋 My Reports</a>
           <a class="nav-link active" href="admin.html">🛠️ Admin</a>
         </div>
       </div>
@@ -33,31 +31,267 @@
     <div class="container py-4">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h3>Admin Dashboard</h3>
-        <div class="d-flex gap-2">
-          <select id="filterStatus" class="form-select">
-            <option value="">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="in_progress">In Progress</option>
-            <option value="resolved">Resolved</option>
-          </select>
-          <button id="refreshBtn" class="btn btn-outline-primary">
-            Refresh
-          </button>
-        </div>
       </div>
 
       <div id="adminGuard" class="alert alert-warning d-none">
         <i class="bi bi-lock"></i> Admin access required.
       </div>
 
-      <div class="card">
-        <div class="card-body">
+      <ul class="nav nav-tabs" id="adminTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link active"
+            id="complaints-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#complaints"
+            type="button"
+            role="tab"
+          >
+            Complaints
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="users-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#users"
+            type="button"
+            role="tab"
+          >
+            Users & Rewards
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="rewards-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#rewards"
+            type="button"
+            role="tab"
+          >
+            Rewards Log
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="analytics-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#analytics"
+            type="button"
+            role="tab"
+          >
+            Analytics
+          </button>
+        </li>
+      </ul>
+      <div
+        class="tab-content border-start border-end border-bottom p-3 bg-white"
+        id="adminTabsContent"
+      >
+        <div class="tab-pane fade show active" id="complaints" role="tabpanel">
+          <div class="d-flex gap-2 mb-3">
+            <select
+              id="filterStatus"
+              class="form-select"
+              style="max-width: 220px"
+            >
+              <option value="">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="in_progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+            </select>
+            <button id="refreshBtn" class="btn btn-outline-primary">
+              Refresh
+            </button>
+          </div>
           <div id="adminList" class="row g-3"></div>
+        </div>
+        <div class="tab-pane fade" id="users" role="tabpanel">
+          <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
+            <div>
+              <label class="form-label">Min Points</label>
+              <input
+                id="minPoints"
+                type="number"
+                class="form-control"
+                placeholder="e.g. 200"
+              />
+            </div>
+            <div>
+              <label class="form-label">Sort</label>
+              <select id="userSort" class="form-select">
+                <option value="points_desc">Points ↓</option>
+                <option value="points_asc">Points ↑</option>
+                <option value="username_asc">Username A→Z</option>
+                <option value="username_desc">Username Z→A</option>
+              </select>
+            </div>
+            <button id="loadUsersBtn" class="btn btn-outline-primary">
+              Load Users
+            </button>
+            <div class="ms-auto d-flex gap-2 align-items-end">
+              <div>
+                <label class="form-label">Auto Threshold</label>
+                <input
+                  id="rewardThreshold"
+                  type="number"
+                  class="form-control"
+                  value="200"
+                />
+              </div>
+              <button id="autoAssignBtn" class="btn btn-success">
+                Auto Assign Rewards
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-striped align-middle">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Email</th>
+                  <th>Points</th>
+                  <th>Demo Reward</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="rewards" role="tabpanel">
+          <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
+            <div>
+              <label class="form-label">Filter by Username</label>
+              <input
+                id="filterRewardsUsername"
+                class="form-control"
+                placeholder="username"
+              />
+            </div>
+            <button id="loadRewardsBtn" class="btn btn-outline-primary">
+              Load Rewards
+            </button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-striped align-middle">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Username</th>
+                  <th>Label</th>
+                  <th>Description</th>
+                  <th>Points</th>
+                  <th>Awarded By</th>
+                  <th>Created</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="rewardsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="analytics" role="tabpanel">
+          <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
+            <div>
+              <label class="form-label">Period (days)</label>
+              <select id="analyticsDays" class="form-select">
+                <option value="7">7</option>
+                <option value="14">14</option>
+                <option value="30" selected>30</option>
+                <option value="90">90</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Category</label>
+              <select id="analyticsCategory" class="form-select">
+                <option value="">All</option>
+              </select>
+            </div>
+            <button id="loadAnalyticsBtn" class="btn btn-outline-primary">
+              Load Analytics
+            </button>
+            <div id="analyticsLoading" class="ms-2 text-muted d-none">
+              <span class="spinner-border spinner-border-sm"></span>
+              Loading...
+            </div>
+          </div>
+          <div id="analyticsEmpty" class="alert alert-info d-none">
+            No data available for the selected filters.
+          </div>
+          <div class="row g-3 mb-3" id="summaryRow">
+            <div class="col-12 col-sm-6 col-lg-3">
+              <div class="card text-center">
+                <div class="card-body">
+                  <div class="text-muted small">Total</div>
+                  <div class="display-6" id="sumTotal">0</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+              <div class="card text-center">
+                <div class="card-body">
+                  <div class="text-muted small">Pending</div>
+                  <div class="display-6 text-warning" id="sumPending">0</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+              <div class="card text-center">
+                <div class="card-body">
+                  <div class="text-muted small">In Progress</div>
+                  <div class="display-6 text-info" id="sumInProgress">0</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+              <div class="card text-center">
+                <div class="card-body">
+                  <div class="text-muted small">Resolved</div>
+                  <div class="display-6 text-success" id="sumResolved">0</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row g-3">
+            <div class="col-12 col-lg-8">
+              <div class="card h-100">
+                <div class="card-body">
+                  <h5 class="card-title">Issues Over Time</h5>
+                  <div style="height: 280px">
+                    <canvas id="statusChart"></canvas>
+                  </div>
+                  <div class="small text-muted mt-2">
+                    Daily counts of Pending, In Progress, and Resolved
+                    complaints.
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-12 col-lg-4">
+              <div class="card h-100">
+                <div class="card-body">
+                  <h5 class="card-title">Status Distribution</h5>
+                  <div style="height: 280px">
+                    <canvas id="statusPie"></canvas>
+                  </div>
+                  <div class="small text-muted mt-2">
+                    Aggregate distribution within the selected period and
+                    filters.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="script.js"></script>
     <script src="admin.js"></script>
   </body>

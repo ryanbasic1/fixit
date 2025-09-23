@@ -101,5 +101,7 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
     return {
         "username": current_user.username,
         "email": current_user.email,
-        "is_admin": getattr(current_user, "is_admin", False)
+        "is_admin": getattr(current_user, "is_admin", False),
+        "points": getattr(current_user, "points", 0),
+        "demo_reward": getattr(current_user, "demo_reward", None),
     }

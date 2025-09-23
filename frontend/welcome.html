@@ -512,6 +512,13 @@
 
       // Add some interactive animations
       document.addEventListener("DOMContentLoaded", () => {
+        // Ensure a fresh, logged-out state when landing on Welcome
+        try {
+          localStorage.removeItem("token");
+          localStorage.removeItem("username");
+          localStorage.removeItem("is_admin");
+        } catch (_) {}
+
         // Respect prefers-reduced-motion: skip animations
         const prefersReducedMotion = window.matchMedia(
           "(prefers-reduced-motion: reduce)"
