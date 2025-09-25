@@ -231,6 +231,33 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (document.querySelector("#analytics.show.active")) {
     populateCategories().then(loadAnalytics);
   }
+
+  // Departments tab events
+  const deptTabBtn = document.getElementById("departments-tab");
+  const deptBtn = document.getElementById("loadDeptBtn");
+  const deptDays = document.getElementById("deptDays");
+  const deptSelect = document.getElementById("deptSelect");
+  const deptRefreshList = document.getElementById("deptRefreshList");
+  const mailDeptBtn = document.getElementById("mailDeptBtn");
+  if (deptBtn)
+    deptBtn.addEventListener("click", () => {
+      loadDepartments();
+      loadDepartmentDetails();
+    });
+  if (deptDays)
+    deptDays.addEventListener("change", () => {
+      loadDepartments();
+      loadDepartmentDetails();
+    });
+  if (deptRefreshList)
+    deptRefreshList.addEventListener("click", populateDepartmentsList);
+  if (mailDeptBtn) mailDeptBtn.addEventListener("click", mailDepartment);
+  if (deptTabBtn) {
+    deptTabBtn.addEventListener("shown.bs.tab", () => {
+      populateDepartments();
+      populateDepartmentsList();
+    });
+  }
 });
 
 async function loadUsersList() {
@@ -565,5 +592,403 @@ async function populateCategories() {
   } catch (e) {
     // Non-fatal error
     console.warn("Category load failed:", e.message || e);
+  }
+}
+
+// Departments: populate the department select from the templates mapping via catalog
+async function populateDepartments() {
+  const sel = document.getElementById("deptSelect");
+  if (!sel) return;
+  if (sel.options.length > 0) return; // avoid duplicate
+  try {
+    // Use /complaints/catalog to get all mapping entries, then collect unique issueType values
+    const res = await apiFetch(`/complaints/catalog`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Failed to load catalog");
+    const types = Array.from(
+      new Set((data.catalog || []).map((x) => x.issueType))
+    ).sort();
+    types.push("Unmapped");
+    // Pre-fill first option to select something predictable
+    types.forEach((t, idx) => {
+      const opt = document.createElement("option");
+      opt.value = t;
+      opt.textContent = t;
+      sel.appendChild(opt);
+    });
+    // Auto-load once
+    loadDepartments();
+    loadDepartmentDetails();
+  } catch (e) {
+    console.warn("Departments load failed:", e.message || e);
+  }
+}
+
+// Sidebar list of departments with click-to-select
+async function populateDepartmentsList() {
+  const list = document.getElementById("deptList");
+  const sel = document.getElementById("deptSelect");
+  if (!list || !sel) return;
+  list.innerHTML = "";
+  try {
+    const res = await apiFetch(`/complaints/catalog`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Failed to load catalog");
+    const types = Array.from(
+      new Set((data.catalog || []).map((x) => x.issueType))
+    ).sort();
+    if (!types.includes("Unmapped")) types.push("Unmapped");
+    types.forEach((t) => {
+      const a = document.createElement("button");
+      a.type = "button";
+      a.className = "list-group-item list-group-item-action";
+      a.textContent = t;
+      a.addEventListener("click", () => {
+        // Select this department in the dropdown and load
+        sel.value = t;
+        loadDepartments();
+        loadDepartmentDetails();
+      });
+      list.appendChild(a);
+    });
+  } catch (e) {
+    console.warn("Departments list failed:", e.message || e);
+  }
+}
+
+// Build and open a precomposed email for the selected department with real issue details
+async function mailDepartment() {
+  const deptSel = document.getElementById("deptSelect");
+  const daysSel = document.getElementById("deptDays");
+  if (!deptSel || !deptSel.value) {
+    showAlert("warning", "Please select a department first.");
+    return;
+  }
+  const department = deptSel.value;
+  const days = daysSel ? parseInt(daysSel.value || "30", 10) : 30;
+  try {
+    const qs = new URLSearchParams({ department, days: String(days) });
+    const res = await apiFetch(`/admin/department_issues?${qs.toString()}`);
+    const data = await res.json();
+    if (!res.ok)
+      throw new Error(data.detail || "Failed to load department issues");
+    const issues = data.issues || [];
+    if (!issues.length) {
+      showAlert(
+        "info",
+        `No issues for ${department} in the last ${days} days.`
+      );
+      return;
+    }
+
+    // Compose a readable plain-text body for email
+    const lines = [];
+    lines.push(`Department: ${department}`);
+    lines.push(`Period: last ${days} days`);
+    lines.push(`Total Issues: ${issues.length}`);
+    lines.push("");
+    for (const it of issues) {
+      lines.push(
+        `#${it.id} • ${it.subcategory || it.category || "Issue"} [${
+          it.priority || "Priority"
+        }]`
+      );
+      lines.push(`Status: ${it.status}`);
+      if (it.description) lines.push(`Description: ${it.description}`);
+      const addr = it.location?.address || "";
+      const lat = it.location?.latitude;
+      const lng = it.location?.longitude;
+      if (addr || (lat != null && lng != null)) {
+        const locParts = [];
+        if (addr) locParts.push(addr);
+        if (lat != null && lng != null) locParts.push(`(${lat}, ${lng})`);
+        lines.push(`Location: ${locParts.join(" ")}`);
+      }
+      if (it.image_url) {
+        // Provide absolute URL if apiBase is set
+        const url = (window.apiBase || "") + it.image_url;
+        lines.push(`Image: ${url}`);
+      }
+      if (it.reporter?.username || it.reporter?.email) {
+        lines.push(
+          `Reported by: ${it.reporter.username || ""} ${
+            it.reporter.email ? `<${it.reporter.email}>` : ""
+          }`.trim()
+        );
+      }
+      lines.push(`Created: ${new Date(it.created_at).toLocaleString()}`);
+      lines.push("");
+    }
+
+    const subjectText = `[SnapFixit] ${department} issues – last ${days} days`;
+    const subject = encodeURIComponent(subjectText);
+    // mailto body has length limits; truncate if very large
+    let body = lines.join("\n");
+    if (body.length > 10000) {
+      body = body.slice(0, 10000) + "\n... (truncated)";
+    }
+    const encodedBody = encodeURIComponent(body);
+
+    // 1) Try opening Gmail compose (web) in a new tab for a polished demo
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${encodedBody}`;
+    let opened = false;
+    try {
+      const w = window.open(gmailUrl, "_blank");
+      opened = !!w;
+    } catch {}
+
+    // 2) Also attempt classic mailto as a fallback (some environments block window.open)
+    if (!opened) {
+      const mailto = `mailto:?subject=${subject}&body=${encodedBody}`;
+      try {
+        window.location.href = mailto;
+        opened = true;
+      } catch {}
+    }
+
+    // 3) Always copy to clipboard for demo purposes so the admin can paste anywhere
+    try {
+      await copyToClipboard(`Subject: ${subjectText}\n\n${body}`);
+      showAlert(
+        "success",
+        "Email content copied to clipboard. If a mail app didn't open, paste it into Gmail."
+      );
+    } catch {
+      // If copying fails, still inform the user that content is ready in the UI
+      showAlert(
+        "info",
+        "Couldn't access clipboard, but the email window should contain all details."
+      );
+    }
+  } catch (e) {
+    showAlert("danger", e.message || "Failed to build email");
+  }
+}
+
+// Small helper to reliably copy text to clipboard with fallback
+async function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  // Fallback approach using a hidden textarea
+  return new Promise((resolve, reject) => {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      ok ? resolve() : reject(new Error("execCommand failed"));
+    } catch (err) {
+      document.body.removeChild(ta);
+      reject(err);
+    }
+  });
+}
+
+async function loadDepartments() {
+  const daysSel = document.getElementById("deptDays");
+  const deptSel = document.getElementById("deptSelect");
+  const tbody = document.getElementById("deptTableBody");
+  const loader = document.getElementById("deptLoading");
+  const empty = document.getElementById("deptEmpty");
+  if (!daysSel || !deptSel || !tbody) return;
+  const days = parseInt(daysSel.value || "30", 10);
+  const dept = deptSel.value;
+  if (loader) loader.classList.remove("d-none");
+  if (empty) empty.classList.add("d-none");
+  tbody.innerHTML = "";
+  try {
+    const res = await apiFetch(
+      `/admin/departments_summary?days=${encodeURIComponent(days)}`
+    );
+    const data = await res.json();
+    if (!res.ok)
+      throw new Error(data.detail || "Failed to load departments summary");
+    const deptData = (data.departments || []).find((d) => d.name === dept);
+    if (!deptData || !deptData.issues || deptData.issues.length === 0) {
+      if (empty) empty.classList.remove("d-none");
+      return;
+    }
+    // Update KPI cards
+    const kpiT = document.getElementById("deptSumTotal");
+    const kpiP = document.getElementById("deptSumPending");
+    const kpiIP = document.getElementById("deptSumInProgress");
+    const kpiR = document.getElementById("deptSumResolved");
+    const totals = deptData.by_status || {
+      pending: 0,
+      in_progress: 0,
+      resolved: 0,
+    };
+    const totalSum =
+      (totals.pending || 0) +
+      (totals.in_progress || 0) +
+      (totals.resolved || 0);
+    if (kpiT) kpiT.textContent = String(totalSum);
+    if (kpiIP) kpiIP.textContent = String(totals.in_progress || 0);
+    if (kpiR) kpiR.textContent = String(totals.resolved || 0);
+    // Render issues sorted by total desc (already sorted)
+    for (const issue of deptData.issues) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${issue.name}</td>
+        <td>${issue.issue_category || ""}</td>
+        <td class="text-number">${issue.counts?.pending ?? 0}</td>
+        <td class="text-number">${issue.counts?.in_progress ?? 0}</td>
+        <td class="text-number">${issue.counts?.resolved ?? 0}</td>
+        <td class="text-number"><strong>${
+          issue.counts?.total ?? 0
+        }</strong></td>
+      `;
+      tbody.appendChild(tr);
+    }
+  } catch (e) {
+    showAlert("danger", e.message || "Failed to load department");
+  } finally {
+    if (loader) loader.classList.add("d-none");
+  }
+}
+
+// Detailed list for the selected department
+async function loadDepartmentDetails() {
+  const deptSel = document.getElementById("deptSelect");
+  const daysSel = document.getElementById("deptDays");
+  let tbody = document.getElementById("deptDetailsBody");
+  const empty = document.getElementById("deptDetailsEmpty");
+  if (!deptSel || !tbody) return;
+  const department = deptSel.value;
+  const days = daysSel ? parseInt(daysSel.value || "30", 10) : 30;
+  // Replace tbody to reset any prior listeners
+  const fresh = tbody.cloneNode(false);
+  tbody.parentNode.replaceChild(fresh, tbody);
+  tbody = fresh;
+  if (empty) empty.classList.add("d-none");
+  try {
+    const qs = new URLSearchParams({ department, days: String(days) });
+    const res = await apiFetch(`/admin/department_issues?${qs.toString()}`);
+    const data = await res.json();
+    if (!res.ok)
+      throw new Error(data.detail || "Failed to load department issues");
+    const items = data.issues || [];
+    if (!items.length) {
+      if (empty) empty.classList.remove("d-none");
+      return;
+    }
+    // Load catalog for reclassification options
+    let catalog = [];
+    try {
+      const r = await apiFetch(`/complaints/catalog`);
+      const j = await r.json();
+      if (r.ok) catalog = j.catalog || [];
+    } catch {}
+    const byDept = {};
+    for (const row of catalog) {
+      if (!byDept[row.issueType]) byDept[row.issueType] = new Set();
+      if (row.subcategory) byDept[row.issueType].add(row.subcategory);
+    }
+    const deptOptions = Object.keys(byDept).sort();
+
+    for (const it of items) {
+      const tr = document.createElement("tr");
+      const imgUrl = (window.apiBase || "") + (it.image_url || "");
+      const addr = it.location?.address || "";
+      const created = it.created_at
+        ? new Date(it.created_at).toLocaleString()
+        : "";
+      const reporter = [
+        it.reporter?.username || "",
+        it.reporter?.email ? `<${it.reporter.email}>` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const deptSelHtml = [
+        '<option value="" disabled selected>Department</option>',
+      ]
+        .concat(deptOptions.map((d) => `<option value="${d}">${d}</option>`))
+        .join("");
+      const subSelHtml =
+        '<option value="" disabled selected>Sub-issue</option>';
+      tr.innerHTML = `
+        <td>${it.id}</td>
+        <td>${it.subcategory || ""}</td>
+        <td>${it.category || ""}</td>
+        <td>${it.priority || ""}</td>
+        <td><span class="badge bg-${getStatusColor(it.status)}">${(
+        it.status || ""
+      ).replace("_", " ")}</span></td>
+        <td>${addr}</td>
+        <td>${created}</td>
+        <td>${reporter}</td>
+        <td>${
+          it.image_url
+            ? `<a href="${imgUrl}" target="_blank"><img src="${imgUrl}" alt="image" style="width:56px;height:42px;object-fit:cover;border-radius:4px" onerror="this.style.display='none'"/></a>`
+            : ""
+        }</td>
+        <td>
+          <div class="d-flex gap-2">
+            <select class="form-select form-select-sm re-dept" data-id="${
+              it.id
+            }">${deptSelHtml}</select>
+            <select class="form-select form-select-sm re-sub" data-id="${
+              it.id
+            }">${subSelHtml}</select>
+            <button class="btn btn-sm btn-outline-primary re-save" data-id="${
+              it.id
+            }">Save</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    }
+    // Dynamic populate subs when department changes
+    tbody.addEventListener("change", (ev) => {
+      const dsel = ev.target.closest("select.re-dept");
+      if (!dsel) return;
+      const id = dsel.getAttribute("data-id");
+      const subs = Array.from(byDept[dsel.value] || []);
+      const subSel = tbody.querySelector(`select.re-sub[data-id='${id}']`);
+      if (!subSel) return;
+      subSel.innerHTML =
+        '<option value="" disabled selected>Sub-issue</option>' +
+        subs.map((s) => `<option value="${s}">${s}</option>`).join("");
+    });
+    // Handle save
+    tbody.addEventListener("click", async (ev) => {
+      const btn = ev.target.closest("button.re-save");
+      if (!btn) return;
+      const id = btn.getAttribute("data-id");
+      const dsel = tbody.querySelector(`select.re-dept[data-id='${id}']`);
+      const ssel = tbody.querySelector(`select.re-sub[data-id='${id}']`);
+      const deptVal = dsel && dsel.value;
+      const subVal = ssel && ssel.value;
+      if (!deptVal || !subVal) {
+        showAlert("warning", "Select department and sub-issue.");
+        return;
+      }
+      try {
+        const res = await apiFetch(
+          `/admin/reclassify_issue?complaint_id=${encodeURIComponent(
+            id
+          )}&department=${encodeURIComponent(
+            deptVal
+          )}&subcategory=${encodeURIComponent(subVal)}`,
+          { method: "POST" }
+        );
+        const out = await res.json();
+        if (!res.ok) throw new Error(out.detail || "Failed to reclassify");
+        showAlert("success", `Reclassified #${id} to ${deptVal} / ${subVal}`);
+        // Refresh both sections
+        loadDepartments();
+        loadDepartmentDetails();
+      } catch (e) {
+        showAlert("danger", e.message || "Failed to reclassify");
+      }
+    });
+  } catch (e) {
+    showAlert("danger", e.message || "Failed to load department details");
   }
 }

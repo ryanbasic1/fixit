@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy import func, and_, or_
 from typing import Optional, List
 from datetime import datetime, timedelta
 from .database import get_db, Complaint, User, Reward, auto_assign_demo_reward
 from .routes_auth import get_current_user
+from .templates import mapping as TEMPLATE_MAPPING
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -549,3 +550,320 @@ async def get_category_status(
         },
     }
     return result
+
+
+@router.get("/departments_summary")
+async def get_departments_summary(
+    days: int = 30,
+    admin: User = Depends(is_admin),
+    db: Session = Depends(get_db),
+):
+    """Return departments with sub-issue breakdown and counts by status using templates mapping.
+    Structure:
+    {
+      departments: [
+        { name, total, by_status: {...}, issues: [ { name, issue_category, counts: {pending,in_progress,resolved,total} } ] }
+      ]
+    }
+    """
+    days = max(1, min(days, 365))
+    cutoff = datetime.utcnow() - timedelta(days=days)
+
+    # Aggregate counts grouped by (category, status) and (subcategory, status)
+    rows_cat = (
+        db.query(Complaint.category, Complaint.status, func.count(Complaint.id))
+        .filter(Complaint.created_at >= cutoff)
+        .group_by(Complaint.category, Complaint.status)
+        .all()
+    )
+    rows_sub = (
+        db.query(Complaint.subcategory, Complaint.status, func.count(Complaint.id))
+        .filter(Complaint.created_at >= cutoff)
+        .group_by(Complaint.subcategory, Complaint.status)
+        .all()
+    )
+    by_cat = {}
+    for cat, status_value, cnt in rows_cat:
+        if not cat:
+            continue
+        key = (cat, (status_value or "").lower())
+        by_cat[key] = cnt
+    # Build a case-insensitive subcategory map (handles simple plural/singular forms)
+    by_sub = {}
+    for sub, status_value, cnt in rows_sub:
+        if not sub:
+            continue
+        norm = (sub or "").strip().lower()
+        key = (norm, (status_value or "").lower())
+        by_sub[key] = by_sub.get(key, 0) + cnt
+
+    def variants(name: str) -> list[str]:
+        n = (name or "").strip().lower()
+        vs = {n}
+        # simple singular/plural toggles
+        if n.endswith("es"):
+            vs.add(n[:-2])
+        if n.endswith("s"):
+            vs.add(n[:-1])
+        else:
+            vs.add(n + "s")
+        return list(vs)
+
+    def counts_for(sub_name: str, issue_category: str):
+        # Prefer subcategory match (case-insensitive, simple plural variants); fallback to category-based counts
+        p = i = r = 0
+        for v in variants(sub_name):
+            p += by_sub.get((v, "pending"), 0)
+            i += by_sub.get((v, "in_progress"), 0)
+            r += by_sub.get((v, "resolved"), 0)
+        if (p + i + r) == 0 and issue_category:
+            p = by_cat.get((issue_category, "pending"), 0)
+            i = by_cat.get((issue_category, "in_progress"), 0)
+            r = by_cat.get((issue_category, "resolved"), 0)
+        return {"pending": p, "in_progress": i, "resolved": r, "total": p + i + r}
+
+    # Build lookup sets from mapping
+    mapped_categories = set()
+    mapped_subcats = set()
+    for dept_name, issues in TEMPLATE_MAPPING.items():
+        for sub_name, data in issues.items():
+            mapped_subcats.add(sub_name)
+            cat = data.get("category")
+            if cat:
+                mapped_categories.add(cat)
+
+    departments = []
+    for dept_name, issues in TEMPLATE_MAPPING.items():
+        dept_issues = []
+        # Compute department totals using the same matching logic as /admin/department_issues:
+        # any complaint whose subcategory (case-insensitive, with simple plural variants) is in the dept mapping OR
+        # whose category matches any of the mapped categories.
+        dept_cats = {data.get("category") for data in issues.values() if data.get("category")}
+        norm_subs = set()
+        for sub_name in issues.keys():
+            for v in variants(sub_name):
+                norm_subs.add(v)
+        dept_totals = {"pending": 0, "in_progress": 0, "resolved": 0}
+        if norm_subs or dept_cats:
+            q = (
+                db.query(Complaint.status, func.count(Complaint.id))
+                .filter(Complaint.created_at >= cutoff)
+            )
+            conds = []
+            if norm_subs:
+                conds.append(func.lower(Complaint.subcategory).in_(list(norm_subs)))
+            if dept_cats:
+                conds.append(Complaint.category.in_(list(dept_cats)))
+            q = q.filter(or_(*conds)).group_by(Complaint.status)
+            for st, cnt in q.all():
+                key = (st or "").lower()
+                if key in dept_totals:
+                    dept_totals[key] = cnt
+        for sub_name, data in issues.items():
+            issue_category = data.get("category")
+            c = counts_for(sub_name, issue_category)
+            dept_issues.append({
+                "name": sub_name,
+                "issue_category": issue_category,
+                "priority": data.get("priority"),
+                "counts": c,
+            })
+        dept_total = sum(dept_totals.values())
+        departments.append({
+            "name": dept_name,
+            "total": dept_total,
+            "by_status": dept_totals,
+            "issues": sorted(dept_issues, key=lambda x: x["counts"]["total"], reverse=True),
+        })
+
+    # Sort departments by total desc
+    departments.sort(key=lambda d: d["total"], reverse=True)
+
+    # Compute Unmapped bucket
+    # Rows whose subcategory and category are both not in mapping (or null)
+    # Normalize sets for case-insensitive & trimmed comparisons
+    def _norm(x: str) -> str:
+        return (x or "").strip().lower()
+    mapped_subcats_norm = {_norm(s) for s in mapped_subcats}
+    mapped_categories_norm = {_norm(s) for s in mapped_categories}
+    nm_cond = and_(
+        or_(
+            Complaint.subcategory.is_(None),
+            ~func.lower(func.trim(Complaint.subcategory)).in_(list(mapped_subcats_norm)),
+        ),
+        or_(
+            Complaint.category.is_(None),
+            ~func.lower(func.trim(Complaint.category)).in_(list(mapped_categories_norm)),
+        ),
+    )
+    rows_unmapped = (
+        db.query(func.coalesce(Complaint.subcategory, Complaint.category).label("name"), Complaint.status, func.count(Complaint.id))
+        .filter(Complaint.created_at >= cutoff)
+        .filter(nm_cond)
+        .group_by("name", Complaint.status)
+        .all()
+    )
+    if rows_unmapped:
+        # Aggregate per name
+        agg: dict[str, dict[str, int]] = {}
+        by_status_totals = {"pending": 0, "in_progress": 0, "resolved": 0}
+        for name, status_value, cnt in rows_unmapped:
+            nm = name or "Uncategorized"
+            st = (status_value or "").lower()
+            if nm not in agg:
+                agg[nm] = {"pending": 0, "in_progress": 0, "resolved": 0}
+            if st in agg[nm]:
+                agg[nm][st] += cnt
+        issues = []
+        for nm, c in agg.items():
+            total = (c.get("pending", 0) + c.get("in_progress", 0) + c.get("resolved", 0))
+            issues.append({
+                "name": nm,
+                "issue_category": "Unmapped",
+                "priority": None,
+                "counts": {"pending": c.get("pending", 0), "in_progress": c.get("in_progress", 0), "resolved": c.get("resolved", 0), "total": total},
+            })
+            by_status_totals["pending"] += c.get("pending", 0)
+            by_status_totals["in_progress"] += c.get("in_progress", 0)
+            by_status_totals["resolved"] += c.get("resolved", 0)
+        total_sum = by_status_totals["pending"] + by_status_totals["in_progress"] + by_status_totals["resolved"]
+        if total_sum > 0:
+            departments.append({
+                "name": "Unmapped",
+                "total": total_sum,
+                "by_status": by_status_totals,
+                "issues": sorted(issues, key=lambda x: x["counts"]["total"], reverse=True),
+            })
+
+    return {
+        "success": True,
+        "period_days": days,
+        "departments": departments,
+    }
+
+
+@router.get("/department_issues")
+async def get_department_issues(
+    department: str,
+    days: int = 30,
+    status: Optional[str] = None,
+    admin: User = Depends(is_admin),
+    db: Session = Depends(get_db),
+):
+    """Return the full list of complaints (with details) for a given department for the last `days`.
+    Department is one of the top-level keys in templates.mapping (e.g., "Roads & Transport").
+    """
+    days = max(1, min(days, 365))
+    # Special Unmapped handling
+    if department != "Unmapped" and department not in TEMPLATE_MAPPING:
+        raise HTTPException(status_code=400, detail="Unknown department")
+
+    # Build filter sets from mapping for mapped departments
+    dept_issues = TEMPLATE_MAPPING.get(department, {}) if department != "Unmapped" else {}
+    subcats = list(dept_issues.keys())
+    categories = list({v.get("category") for v in dept_issues.values() if v.get("category")})
+
+    cutoff = datetime.utcnow() - timedelta(days=days)
+
+    # Use OUTER JOIN so complaints with missing users still appear
+    q = db.query(Complaint, User).outerjoin(User, Complaint.user_id == User.id)
+    q = q.filter(Complaint.created_at >= cutoff)
+    if department == "Unmapped":
+        # Build normalized sets of all mapped items (case-insensitive, trimmed)
+        def _norm(x: str) -> str:
+            return (x or "").strip().lower()
+        mapped_categories = set()
+        mapped_subcats = set()
+        for _dept, issues in TEMPLATE_MAPPING.items():
+            for sub_name, data in issues.items():
+                mapped_subcats.add(_norm(sub_name))
+                cat = data.get("category")
+                if cat:
+                    mapped_categories.add(_norm(cat))
+        q = q.filter(
+            and_(
+                or_(Complaint.subcategory.is_(None), ~func.lower(func.trim(Complaint.subcategory)).in_(list(mapped_subcats))),
+                or_(Complaint.category.is_(None), ~func.lower(func.trim(Complaint.category)).in_(list(mapped_categories))),
+            )
+        )
+    else:
+        # Match by subcategory primarily; also include any records whose category matches mapping
+        q = q.filter((Complaint.subcategory.in_(subcats)) | (Complaint.category.in_(categories)))
+    if status:
+        q = q.filter(Complaint.status == status)
+    q = q.order_by(Complaint.created_at.desc())
+
+    rows = q.all()
+    issues = []
+    for comp, user in rows:
+        issues.append({
+            "id": comp.id,
+            "subcategory": comp.subcategory,
+            "category": comp.category,
+            "description": comp.description,
+            "status": comp.status,
+            "priority": comp.priority,
+            "image_url": comp.image_path,
+            "location": {
+                "latitude": comp.latitude,
+                "longitude": comp.longitude,
+                "address": comp.address,
+            },
+            "created_at": comp.created_at.isoformat(),
+            "updated_at": comp.updated_at.isoformat(),
+            "reporter": {
+                "username": getattr(user, "username", None),
+                "email": getattr(user, "email", None),
+                "points": getattr(user, "points", 0),
+                "demo_reward": getattr(user, "demo_reward", None),
+            },
+        })
+
+    return {
+        "success": True,
+        "department": department,
+        "period_days": days,
+        "count": len(issues),
+        "issues": issues,
+    }
+
+
+@router.post("/reclassify_issue")
+async def reclassify_issue(
+    complaint_id: int,
+    department: str,
+    subcategory: str,
+    admin: User = Depends(is_admin),
+    db: Session = Depends(get_db),
+):
+    """Manually assign an issue to a department/subcategory from the catalog.
+    This updates the complaint's subcategory and category based on templates mapping,
+    and optionally priority if available.
+    """
+    if department not in TEMPLATE_MAPPING or subcategory not in TEMPLATE_MAPPING[department]:
+        raise HTTPException(status_code=400, detail="Invalid department/subcategory")
+    comp = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+    if not comp:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+    tpl = TEMPLATE_MAPPING[department][subcategory]
+    try:
+        comp.subcategory = subcategory
+        comp.category = tpl.get("category") or comp.category
+        if tpl.get("priority"):
+            comp.priority = tpl.get("priority")
+        comp.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(comp)
+        return {
+            "success": True,
+            "complaint": {
+                "id": comp.id,
+                "category": comp.category,
+                "subcategory": comp.subcategory,
+                "priority": comp.priority,
+                "updated_at": comp.updated_at.isoformat(),
+            },
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to reclassify: {e}")

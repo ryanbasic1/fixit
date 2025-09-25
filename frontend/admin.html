@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin - Civic AI</title>
+    <title>Admin - SnapFixit</title>
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
       rel="stylesheet"
@@ -12,6 +12,27 @@
       href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css"
       rel="stylesheet"
     />
+    <style>
+      /* Light, unobtrusive refinements for a professional look */
+      .kpi-card .display-6 {
+        line-height: 1;
+      }
+      .kpi-card .label {
+        font-size: 0.8rem;
+        color: #6c757d;
+      }
+      .table thead th {
+        white-space: nowrap;
+      }
+      .text-number {
+        text-align: center;
+      }
+      @media (max-width: 576px) {
+        .text-number {
+          text-align: right;
+        }
+      }
+    </style>
   </head>
   <body class="bg-light">
     <div
@@ -21,7 +42,7 @@
     ></div>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
       <div class="container">
-        <a class="navbar-brand" href="index.html">🏛️ Civic AI</a>
+        <a class="navbar-brand" href="index.html">🏛️ SnapFixit</a>
         <div class="navbar-nav ms-auto">
           <a class="nav-link active" href="admin.html">🛠️ Admin</a>
         </div>
@@ -86,11 +107,24 @@
             Analytics
           </button>
         </li>
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="departments-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#departments"
+            type="button"
+            role="tab"
+          >
+            Departments
+          </button>
+        </li>
       </ul>
       <div
         class="tab-content border-start border-end border-bottom p-3 bg-white"
         id="adminTabsContent"
       >
+        <!-- Complaints tab -->
         <div class="tab-pane fade show active" id="complaints" role="tabpanel">
           <div class="d-flex gap-2 mb-3">
             <select
@@ -109,42 +143,45 @@
           </div>
           <div id="adminList" class="row g-3"></div>
         </div>
+
+        <!-- Users & Rewards tab -->
         <div class="tab-pane fade" id="users" role="tabpanel">
-          <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
-            <div>
-              <label class="form-label">Min Points</label>
-              <input
-                id="minPoints"
-                type="number"
-                class="form-control"
-                placeholder="e.g. 200"
-              />
-            </div>
-            <div>
-              <label class="form-label">Sort</label>
-              <select id="userSort" class="form-select">
-                <option value="points_desc">Points ↓</option>
-                <option value="points_asc">Points ↑</option>
-                <option value="username_asc">Username A→Z</option>
-                <option value="username_desc">Username Z→A</option>
-              </select>
-            </div>
-            <button id="loadUsersBtn" class="btn btn-outline-primary">
-              Load Users
-            </button>
-            <div class="ms-auto d-flex gap-2 align-items-end">
+          <div class="card mb-3">
+            <div class="card-body d-flex flex-wrap gap-3 align-items-end">
               <div>
-                <label class="form-label">Auto Threshold</label>
+                <label class="form-label">Min Points</label>
                 <input
-                  id="rewardThreshold"
+                  id="minPoints"
                   type="number"
                   class="form-control"
-                  value="200"
+                  placeholder="0"
                 />
               </div>
-              <button id="autoAssignBtn" class="btn btn-success">
-                Auto Assign Rewards
+              <div>
+                <label class="form-label">Sort</label>
+                <select id="userSort" class="form-select">
+                  <option value="-points">Points (High → Low)</option>
+                  <option value="points">Points (Low → High)</option>
+                  <option value="username">Username (A → Z)</option>
+                </select>
+              </div>
+              <button id="loadUsersBtn" class="btn btn-outline-primary">
+                Load Users
               </button>
+              <div class="ms-auto d-flex align-items-end gap-2">
+                <div>
+                  <label class="form-label">Auto-assign threshold</label>
+                  <input
+                    id="rewardThreshold"
+                    type="number"
+                    class="form-control"
+                    value="200"
+                  />
+                </div>
+                <button id="autoAssignBtn" class="btn btn-success">
+                  Auto Assign Rewards
+                </button>
+              </div>
             </div>
           </div>
           <div class="table-responsive">
@@ -162,6 +199,8 @@
             </table>
           </div>
         </div>
+
+        <!-- Rewards Log tab -->
         <div class="tab-pane fade" id="rewards" role="tabpanel">
           <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
             <div>
@@ -194,6 +233,8 @@
             </table>
           </div>
         </div>
+
+        <!-- Analytics tab -->
         <div class="tab-pane fade" id="analytics" role="tabpanel">
           <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
             <div>
@@ -283,6 +324,154 @@
                     filters.
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Departments tab -->
+        <div class="tab-pane fade" id="departments" role="tabpanel">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div>
+              <h5 class="mb-0">Department Overview</h5>
+              <div class="text-muted small">
+                Breakdown of issues by department and status
+              </div>
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-12 col-lg-3">
+              <div class="card h-100">
+                <div class="card-body">
+                  <div
+                    class="d-flex justify-content-between align-items-center mb-2"
+                  >
+                    <strong>Departments</strong>
+                    <button
+                      id="deptRefreshList"
+                      class="btn btn-sm btn-outline-secondary"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                  <div id="deptList" class="list-group small"></div>
+                </div>
+              </div>
+            </div>
+            <div class="col-12 col-lg-9">
+              <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
+                <div>
+                  <label class="form-label">Period (days)</label>
+                  <select id="deptDays" class="form-select">
+                    <option value="7">7</option>
+                    <option value="14">14</option>
+                    <option value="30" selected>30</option>
+                    <option value="90">90</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label">Department</label>
+                  <select id="deptSelect" class="form-select"></select>
+                </div>
+                <button id="loadDeptBtn" class="btn btn-outline-primary">
+                  Load Department
+                </button>
+                <button id="mailDeptBtn" class="btn btn-primary">
+                  <i class="bi bi-envelope"></i> Mail Department
+                </button>
+                <div id="deptLoading" class="ms-2 text-muted d-none">
+                  <span class="spinner-border spinner-border-sm"></span>
+                  Loading...
+                </div>
+              </div>
+              <div class="row g-3 mb-3">
+                <div class="col-6 col-md-3">
+                  <div class="card kpi-card text-center">
+                    <div class="card-body">
+                      <div class="label">Total</div>
+                      <div id="deptSumTotal" class="display-6">0</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="card kpi-card text-center">
+                    <div class="card-body">
+                      <div class="label">Pending</div>
+                      <div id="deptSumPending" class="display-6 text-warning">
+                        0
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="card kpi-card text-center">
+                    <div class="card-body">
+                      <div class="label">In Progress</div>
+                      <div id="deptSumInProgress" class="display-6 text-info">
+                        0
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="card kpi-card text-center">
+                    <div class="card-body">
+                      <div class="label">Resolved</div>
+                      <div id="deptSumResolved" class="display-6 text-success">
+                        0
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div id="deptEmpty" class="alert alert-info d-none">
+                No issues found for this department in the selected period.
+              </div>
+              <div class="table-responsive">
+                <table class="table table-hover table-sm align-middle">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Issue (Subcategory)</th>
+                      <th>Mapped Category</th>
+                      <th>Priority</th>
+                      <th class="text-number">Pending</th>
+                      <th class="text-number">In Progress</th>
+                      <th class="text-number">Resolved</th>
+                      <th class="text-number">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="deptTableBody"></tbody>
+                </table>
+              </div>
+
+              <div class="small text-muted mt-2">
+                Note: Department counts include issues mapped in the catalog.
+                Unmapped categories may not appear here.
+              </div>
+
+              <hr class="my-3" />
+              <h6 class="mb-2">Detailed Issues</h6>
+              <div id="deptDetailsEmpty" class="alert alert-secondary d-none">
+                No detailed issues to display.
+              </div>
+              <div class="table-responsive">
+                <table class="table table-striped table-sm align-middle">
+                  <thead class="table-light">
+                    <tr>
+                      <th>ID</th>
+                      <th>Subcategory</th>
+                      <th>Category</th>
+                      <th>Priority</th>
+                      <th>Status</th>
+                      <th>Address</th>
+                      <th>Created</th>
+                      <th>Reporter</th>
+                      <th>Image</th>
+                      <th style="min-width: 240px">Reclassify</th>
+                    </tr>
+                  </thead>
+                  <tbody id="deptDetailsBody"></tbody>
+                </table>
               </div>
             </div>
           </div>

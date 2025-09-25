@@ -168,7 +168,13 @@ async def raise_complaint(
 
         # Determine final category/subcategory/priority/description (apply user override when valid)
         final_category = report["issue_category"]
-        final_subcategory = predicted_issue
+        # If resolver mapped it, set subcategory from that; otherwise keep predicted_issue text
+        try:
+            from .templates import resolve_prediction
+            rp = resolve_prediction(predicted_issue)
+            final_subcategory = rp[1] if rp else predicted_issue
+        except Exception:
+            final_subcategory = predicted_issue
         final_priority = report["priority_level"]
         final_description = description or report["detailed_description"]
 

@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 import json
 import numpy
-from .templates import mapping, prediction_mapping, create_issue_report
+from .templates import mapping, prediction_mapping, create_issue_report, resolve_prediction
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -86,10 +86,14 @@ def classify_image(image: Image.Image):
             # Log the prediction
             logger.info(f"CLIP prediction: {issue} (confidence: {confidence:.2f})")
 
-            # If CLIP says it's non-civic with reasonable confidence or
-            # if all civic probabilities are weak compared to non-civic prompts, gate it
-            if category == "non_civic" and confidence >= 0.45:
-                return "non_civic", confidence
+            # If CLIP says non_civic, still try our resolver first (helps on borderline cases)
+            if category == "non_civic":
+                resolved = resolve_prediction(issue)
+                if resolved:
+                    # Route to the resolved subcategory; keep moderate confidence
+                    return (resolved[1] or "").lower(), min(confidence, 0.75)
+                if confidence >= 0.45:
+                    return "non_civic", confidence
 
             # Otherwise continue with normalized civic mapping
             
@@ -106,6 +110,10 @@ def classify_image(image: Image.Image):
                 normalized = "damaged toilet"
             else:
                 normalized = issue.lower()
+            # Try resolver to catch synonyms like dead animal/exposed wire
+            r = resolve_prediction(normalized)
+            if r:
+                return (r[1] or "").lower(), confidence
             
             return normalized, confidence
             
