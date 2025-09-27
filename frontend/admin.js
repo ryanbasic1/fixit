@@ -258,6 +258,25 @@ document.addEventListener("DOMContentLoaded", async () => {
       populateDepartmentsList();
     });
   }
+
+  // Workers tab events
+  const workersTabBtn = document.getElementById("workers-tab");
+  const workerRegistrationForm = document.getElementById("workerRegistrationForm");
+  const refreshWorkersBtn = document.getElementById("refreshWorkersBtn");
+  const deactivateWorkerBtn = document.getElementById("deactivateWorkerBtn");
+  
+  if (workersTabBtn) {
+    workersTabBtn.addEventListener("shown.bs.tab", loadWorkersList);
+  }
+  if (workerRegistrationForm) {
+    workerRegistrationForm.addEventListener("submit", registerWorker);
+  }
+  if (refreshWorkersBtn) {
+    refreshWorkersBtn.addEventListener("click", loadWorkersList);
+  }
+  if (deactivateWorkerBtn) {
+    deactivateWorkerBtn.addEventListener("click", deactivateWorker);
+  }
 });
 
 async function loadUsersList() {
@@ -990,5 +1009,214 @@ async function loadDepartmentDetails() {
     });
   } catch (e) {
     showAlert("danger", e.message || "Failed to load department details");
+  }
+}
+
+// Worker Management Functions
+async function registerWorker(e) {
+  e.preventDefault();
+  
+  const name = document.getElementById("workerName").value.trim();
+  const username = document.getElementById("workerUsername").value.trim();
+  const email = document.getElementById("workerEmail").value.trim();
+  const password = document.getElementById("workerPassword").value;
+  const phone = document.getElementById("workerPhone").value.trim();
+  const department = document.getElementById("workerDepartment").value;
+  const skillsText = document.getElementById("workerSkills").value.trim();
+  
+  if (!name || !username || !email || !password || !department) {
+    showAlert("warning", "Please fill in all required fields.");
+    return;
+  }
+  
+  const skills = skillsText ? skillsText.split(',').map(s => s.trim()).filter(s => s) : [];
+  
+  const workerData = {
+    name,
+    username,
+    email,
+    password,
+    phone,
+    department,
+    skills
+  };
+  
+  try {
+    const res = await apiFetch("/admin/register_worker", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(workerData)
+    });
+    
+    const data = await res.json();
+    
+    if (!res.ok) {
+      throw new Error(data.detail || "Failed to register worker");
+    }
+    
+    showAlert("success", `Worker ${name} registered successfully! Username: ${username}`);
+    
+    // Reset form
+    document.getElementById("workerRegistrationForm").reset();
+    
+    // Refresh workers list
+    loadWorkersList();
+    
+  } catch (e) {
+    showAlert("danger", e.message || "Failed to register worker");
+  }
+}
+
+async function loadWorkersList() {
+  const loader = document.getElementById("workersLoading");
+  const empty = document.getElementById("workersEmpty");
+  const list = document.getElementById("workersList");
+  
+  if (!list) return;
+  
+  if (loader) loader.classList.remove("d-none");
+  if (empty) empty.classList.add("d-none");
+  list.innerHTML = "";
+  
+  try {
+    const res = await apiFetch("/admin/workers");
+    const data = await res.json();
+    
+    if (!res.ok) {
+      throw new Error(data.detail || "Failed to load workers");
+    }
+    
+    const workers = data.workers || [];
+    
+    if (workers.length === 0) {
+      if (empty) empty.classList.remove("d-none");
+      return;
+    }
+    
+    workers.forEach(worker => {
+      const item = document.createElement("div");
+      item.className = "list-group-item list-group-item-action";
+      item.innerHTML = `
+        <div class="d-flex w-100 justify-content-between">
+          <h6 class="mb-1">${worker.name}</h6>
+          <small class="text-muted">${worker.department}</small>
+        </div>
+        <p class="mb-1">
+          <strong>Username:</strong> ${worker.username}<br>
+          <strong>Email:</strong> ${worker.email}<br>
+          ${worker.phone ? `<strong>Phone:</strong> ${worker.phone}<br>` : ''}
+          <strong>Status:</strong> 
+          <span class="badge ${worker.active_status ? 'bg-success' : 'bg-secondary'}">
+            ${worker.active_status ? 'Active' : 'Inactive'}
+          </span>
+        </p>
+        <small class="text-muted">
+          Completed Jobs: ${worker.completed_jobs} | Rating: ${worker.rating}/5.0
+          ${worker.skills && worker.skills.length > 0 ? `<br>Skills: ${worker.skills.join(', ')}` : ''}
+        </small>
+      `;
+      
+      item.addEventListener("click", () => showWorkerDetails(worker));
+      list.appendChild(item);
+    });
+    
+  } catch (e) {
+    showAlert("danger", e.message || "Failed to load workers");
+  } finally {
+    if (loader) loader.classList.add("d-none");
+  }
+}
+
+function showWorkerDetails(worker) {
+  const modalBody = document.getElementById("workerDetailsBody");
+  const deactivateBtn = document.getElementById("deactivateWorkerBtn");
+  
+  if (!modalBody) return;
+  
+  modalBody.innerHTML = `
+    <div class="row">
+      <div class="col-md-6">
+        <h6>Personal Information</h6>
+        <p><strong>Name:</strong> ${worker.name}</p>
+        <p><strong>Username:</strong> ${worker.username}</p>
+        <p><strong>Email:</strong> ${worker.email}</p>
+        ${worker.phone ? `<p><strong>Phone:</strong> ${worker.phone}</p>` : ''}
+        <p><strong>Department:</strong> ${worker.department}</p>
+        <p><strong>Status:</strong> 
+          <span class="badge ${worker.active_status ? 'bg-success' : 'bg-secondary'}">
+            ${worker.active_status ? 'Active' : 'Inactive'}
+          </span>
+        </p>
+      </div>
+      <div class="col-md-6">
+        <h6>Work Statistics</h6>
+        <p><strong>Completed Jobs:</strong> ${worker.completed_jobs}</p>
+        <p><strong>Rating:</strong> ${worker.rating}/5.0</p>
+        ${worker.current_location && worker.current_location.latitude ? 
+          `<p><strong>Last Location:</strong> ${worker.current_location.latitude.toFixed(6)}, ${worker.current_location.longitude.toFixed(6)}</p>` : 
+          '<p><strong>Location:</strong> Not available</p>'
+        }
+      </div>
+    </div>
+    ${worker.skills && worker.skills.length > 0 ? `
+      <div class="mt-3">
+        <h6>Skills & Specializations</h6>
+        <div class="d-flex flex-wrap gap-1">
+          ${worker.skills.map(skill => `<span class="badge bg-primary">${skill}</span>`).join('')}
+        </div>
+      </div>
+    ` : ''}
+  `;
+  
+  // Store worker ID for deactivation
+  if (deactivateBtn) {
+    deactivateBtn.setAttribute("data-worker-id", worker.id);
+    deactivateBtn.textContent = worker.active_status ? "Deactivate Worker" : "Activate Worker";
+    deactivateBtn.className = worker.active_status ? "btn btn-danger" : "btn btn-success";
+  }
+  
+  // Show modal
+  const modal = new bootstrap.Modal(document.getElementById("workerDetailsModal"));
+  modal.show();
+}
+
+async function deactivateWorker() {
+  const btn = document.getElementById("deactivateWorkerBtn");
+  if (!btn) return;
+  
+  const workerId = btn.getAttribute("data-worker-id");
+  if (!workerId) return;
+  
+  const isActive = btn.textContent.includes("Deactivate");
+  const action = isActive ? "deactivate" : "activate";
+  
+  if (!confirm(`Are you sure you want to ${action} this worker?`)) {
+    return;
+  }
+  
+  try {
+    const res = await apiFetch(`/admin/toggle_worker_status/${workerId}`, {
+      method: "PUT"
+    });
+    
+    const data = await res.json();
+    
+    if (!res.ok) {
+      throw new Error(data.detail || `Failed to ${action} worker`);
+    }
+    
+    showAlert("success", `Worker ${action}d successfully`);
+    
+    // Close modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById("workerDetailsModal"));
+    if (modal) modal.hide();
+    
+    // Refresh workers list
+    loadWorkersList();
+    
+  } catch (e) {
+    showAlert("danger", e.message || `Failed to ${action} worker`);
   }
 }

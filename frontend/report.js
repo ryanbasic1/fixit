@@ -10,6 +10,7 @@
   let currentAnalysis = null;
   let recognition = null;
   let isRecording = false;
+  let isSubmitting = false; // Track if report is being submitted
 
   // Initialize report page functionality
   document.addEventListener("DOMContentLoaded", () => {
@@ -28,7 +29,63 @@
     }
 
     setupReportPage();
+    setupPageUnloadProtection();
   });
+
+  // Prevent page reload/navigation during submission
+  function setupPageUnloadProtection() {
+    // Prevent page reload with Ctrl+R, F5, etc.
+    document.addEventListener("keydown", (e) => {
+      if (isSubmitting) {
+        // Prevent F5 (refresh)
+        if (e.key === "F5") {
+          e.preventDefault();
+          showAlert(
+            "warning",
+            "Please wait while your report is being submitted..."
+          );
+          return false;
+        }
+        // Prevent Ctrl+R (refresh)
+        if (e.ctrlKey && e.key === "r") {
+          e.preventDefault();
+          showAlert(
+            "warning",
+            "Please wait while your report is being submitted..."
+          );
+          return false;
+        }
+      }
+    });
+
+    // Prevent navigation away from page during submission
+    window.addEventListener("beforeunload", (e) => {
+      if (isSubmitting) {
+        const message =
+          "Your report is being submitted. Are you sure you want to leave?";
+        e.preventDefault();
+        e.returnValue = message;
+        return message;
+      }
+    });
+
+    // Prevent back button during submission
+    window.addEventListener("popstate", (e) => {
+      if (isSubmitting) {
+        e.preventDefault();
+        if (
+          confirm(
+            "Your report is being submitted. Are you sure you want to leave this page?"
+          )
+        ) {
+          isSubmitting = false; // Allow navigation if user confirms
+          window.history.back();
+        } else {
+          window.history.pushState(null, null, window.location.href);
+        }
+      }
+    });
+  }
 
   function showNotLoggedInState() {
     const analyzeBtn = document.getElementById("analyzeBtn");
@@ -235,6 +292,10 @@
   async function analyzeImage() {
     console.log("=== analyzeImage function called ===");
 
+    // Set analyzing state for page protection
+    const wasSubmitting = isSubmitting;
+    isSubmitting = true;
+
     // Prevent navigation during analysis
     const originalOnBeforeUnload = window.onbeforeunload;
     window.onbeforeunload = () => {
@@ -340,6 +401,9 @@
     } finally {
       // Restore original navigation handler
       window.onbeforeunload = originalOnBeforeUnload;
+
+      // Restore submission state
+      isSubmitting = wasSubmitting;
 
       const analyzeBtn = document.getElementById("analyzeBtn");
       analyzeBtn.disabled = false;
@@ -520,7 +584,10 @@
 
     // Reset disabled states and texts
     const editableDescription = document.getElementById("editableDescription");
-    if (editableDescription) editableDescription.disabled = false;
+    if (editableDescription) {
+      editableDescription.disabled = false;
+      editableDescription.value = "";
+    }
     const voiceBtn = document.getElementById("voiceInputBtn");
     if (voiceBtn) voiceBtn.disabled = false;
     const submitBtn = document.getElementById("confirmSubmitBtn");
@@ -534,6 +601,126 @@
     if (categoryBadge) {
       categoryBadge.classList.remove("bg-warning", "text-dark");
       categoryBadge.classList.add("bg-primary");
+    }
+  }
+
+  function resetForNewReport() {
+    console.log("Resetting form for new report");
+
+    // Reset submission state
+    isSubmitting = false;
+    removeSubmissionOverlay();
+
+    // Reset all form elements
+    const imageInput = document.getElementById("imageInput");
+    const preview = document.getElementById("preview");
+    const analyzeBtn = document.getElementById("analyzeBtn");
+
+    // Clear file input
+    if (imageInput) {
+      imageInput.value = "";
+    }
+
+    // Hide and reset preview
+    if (preview) {
+      preview.classList.add("d-none");
+      preview.src = "";
+    }
+
+    // Reset analyze button
+    if (analyzeBtn) {
+      analyzeBtn.disabled = false;
+      analyzeBtn.innerHTML = "🔍 Analyze Issue";
+    }
+
+    // Stop any active camera
+    stopCamera();
+
+    // Reset camera button
+    const toggleCameraBtn = document.getElementById("toggleCameraBtn");
+    const captureBtn = document.getElementById("captureBtn");
+    const video = document.getElementById("video");
+
+    if (toggleCameraBtn) {
+      toggleCameraBtn.textContent = "📸 Use Camera";
+    }
+    if (captureBtn) {
+      captureBtn.classList.add("d-none");
+    }
+    if (video) {
+      video.classList.add("d-none");
+    }
+
+    // Reset analysis and results
+    resetAnalysis();
+
+    // Clear any existing alerts
+    const alertContainer = document.getElementById("alertContainer");
+    if (alertContainer) {
+      alertContainer.innerHTML = "";
+    }
+
+    // Scroll back to top of form
+    document.querySelector(".container").scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+
+    // Show success message
+    showAlert(
+      "info",
+      "Ready to report another issue! Select or capture an image to get started."
+    );
+  }
+
+  // Add overlay to prevent interaction during submission
+  function addSubmissionOverlay() {
+    // Remove existing overlay if any
+    removeSubmissionOverlay();
+
+    const overlay = document.createElement("div");
+    overlay.id = "submissionOverlay";
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 9999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(2px);
+    `;
+
+    const content = document.createElement("div");
+    content.style.cssText = `
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      max-width: 400px;
+    `;
+
+    content.innerHTML = `
+      <div class="spinner-border text-primary mb-3" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <h5 class="mb-2">🚀 Submitting Your Report</h5>
+      <p class="text-muted mb-0">Please don't close this page or navigate away.<br>This may take a few moments...</p>
+    `;
+
+    overlay.appendChild(content);
+    document.body.appendChild(overlay);
+  }
+
+  // Remove submission overlay
+  function removeSubmissionOverlay() {
+    const overlay = document.getElementById("submissionOverlay");
+    if (overlay) {
+      overlay.remove();
     }
   }
 
@@ -692,106 +879,125 @@
       return;
     }
 
+    // Prevent multiple submissions
+    if (isSubmitting) {
+      showAlert("warning", "Report is already being submitted. Please wait...");
+      return;
+    }
+
+    // Set submission state
+    isSubmitting = true;
+
     const formData = new FormData();
     const confirmSubmitBtn = document.getElementById("confirmSubmitBtn");
 
-    // Prepare image data
-    if (preview.src.startsWith("data:")) {
-      const res = await fetch(preview.src);
-      const blob = await res.blob();
-      formData.append("image", blob, "capture.jpg");
-    } else {
-      const fileInput = document.getElementById("imageInput");
-      formData.append("image", fileInput.files[0]);
-    }
-
-    // Add edited description
-    const editedDescription = document.getElementById(
-      "editableDescription"
-    ).value;
-    if (editedDescription !== currentAnalysis.description) {
-      formData.append("description", editedDescription);
-    }
-
-    // Category/subcategory override
-    const categorySelect = document.getElementById("categorySelect");
-    const subcategorySelect = document.getElementById("subcategorySelect");
-    if (categorySelect && subcategorySelect) {
-      if (
-        categorySelect.value &&
-        categorySelect.value !== currentAnalysis.category
-      ) {
-        formData.append("category_override", categorySelect.value);
-      }
-      const aiSub = (currentAnalysis.predicted_issue || "").toLowerCase();
-      if (
-        subcategorySelect.value &&
-        subcategorySelect.value.toLowerCase() !== aiSub
-      ) {
-        formData.append("subcategory_override", subcategorySelect.value);
-      }
-    }
-
-    // Show loading state
-    confirmSubmitBtn.disabled = true;
-    confirmSubmitBtn.innerHTML =
-      '<span class="spinner-border spinner-border-sm"></span> Getting location...';
-
-    let locationCaptured = false;
-
-    // Get location
-    if ("geolocation" in navigator) {
-      try {
-        const position = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0,
-          });
-        });
-
-        const locationData = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-        };
-
-        // Try to get address
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${position.coords.latitude}&lon=${position.coords.longitude}&format=json`
-          );
-          const data = await response.json();
-          locationData.address = data.display_name;
-        } catch (error) {
-          console.warn("Could not get address:", error);
-        }
-
-        formData.append("location", JSON.stringify(locationData));
-        locationCaptured = true;
-
-        showAlert("success", "Location captured successfully!");
-      } catch (err) {
-        console.warn("Could not get location:", err);
-        showAlert(
-          "warning",
-          "Could not get your location. Please enable location access."
-        );
-        if (!confirm("Continue without location?")) {
-          confirmSubmitBtn.disabled = false;
-          confirmSubmitBtn.innerHTML = "✅ Submit This Report";
-          return;
-        }
-      }
-    } else {
-      showAlert("warning", "Your browser doesn't support location services.");
-    }
-
-    // Update button to show submitting state
-    confirmSubmitBtn.innerHTML =
-      '<span class="spinner-border spinner-border-sm"></span> Submitting...';
-
     try {
+      // Prepare image data
+      if (preview.src.startsWith("data:")) {
+        const res = await fetch(preview.src);
+        const blob = await res.blob();
+        formData.append("image", blob, "capture.jpg");
+      } else {
+        const fileInput = document.getElementById("imageInput");
+        formData.append("image", fileInput.files[0]);
+      }
+
+      // Add edited description
+      const editedDescription = document.getElementById(
+        "editableDescription"
+      ).value;
+      if (editedDescription !== currentAnalysis.description) {
+        formData.append("description", editedDescription);
+      }
+
+      // Category/subcategory override
+      const categorySelect = document.getElementById("categorySelect");
+      const subcategorySelect = document.getElementById("subcategorySelect");
+      if (categorySelect && subcategorySelect) {
+        if (
+          categorySelect.value &&
+          categorySelect.value !== currentAnalysis.category
+        ) {
+          formData.append("category_override", categorySelect.value);
+        }
+        const aiSub = (currentAnalysis.predicted_issue || "").toLowerCase();
+        if (
+          subcategorySelect.value &&
+          subcategorySelect.value.toLowerCase() !== aiSub
+        ) {
+          formData.append("subcategory_override", subcategorySelect.value);
+        }
+      }
+
+      // Show loading state
+      confirmSubmitBtn.disabled = true;
+      confirmSubmitBtn.innerHTML =
+        '<span class="spinner-border spinner-border-sm"></span> Getting location...';
+
+      // Show submission in progress alert
+      showAlert(
+        "info",
+        "🚀 Submitting your report... Please don't close this page."
+      );
+
+      // Add visual overlay to prevent interaction
+      addSubmissionOverlay();
+
+      let locationCaptured = false;
+
+      // Get location
+      if ("geolocation" in navigator) {
+        try {
+          const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0,
+            });
+          });
+
+          const locationData = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+          };
+
+          // Try to get address
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?lat=${position.coords.latitude}&lon=${position.coords.longitude}&format=json`
+            );
+            const data = await response.json();
+            locationData.address = data.display_name;
+          } catch (error) {
+            console.warn("Could not get address:", error);
+          }
+
+          formData.append("location", JSON.stringify(locationData));
+          locationCaptured = true;
+
+          showAlert("success", "Location captured successfully!");
+        } catch (err) {
+          console.warn("Could not get location:", err);
+          showAlert(
+            "warning",
+            "Could not get your location. Please enable location access."
+          );
+          if (!confirm("Continue without location?")) {
+            isSubmitting = false; // Reset submission state
+            confirmSubmitBtn.disabled = false;
+            confirmSubmitBtn.innerHTML = "✅ Submit This Report";
+            return;
+          }
+        }
+      } else {
+        showAlert("warning", "Your browser doesn't support location services.");
+      }
+
+      // Update button to show submitting state
+      confirmSubmitBtn.innerHTML =
+        '<span class="spinner-border spinner-border-sm"></span> Submitting...';
+
       const response = await apiFetch("/complaints/raise", {
         method: "POST",
         body: formData,
@@ -812,6 +1018,10 @@
             })
           );
         } catch (_) {}
+
+        // Reset submission state before redirect
+        isSubmitting = false;
+        removeSubmissionOverlay();
 
         // Redirect to community with highlight parameter
         window.location.href = `community.html?highlight=${encodeURIComponent(
@@ -844,8 +1054,13 @@
       showAlert("danger", "Error submitting complaint");
       console.error(error);
     } finally {
+      // Reset submission state
+      isSubmitting = false;
       confirmSubmitBtn.disabled = false;
       confirmSubmitBtn.innerHTML = "✅ Submit This Report";
+
+      // Remove submission overlay
+      removeSubmissionOverlay();
     }
   }
 
@@ -881,6 +1096,16 @@
     `;
       document.getElementById("resultSection").appendChild(locationDiv);
     }
+
+    // Add "Report Another Issue" button
+    const reportAnotherBtn = document.createElement("div");
+    reportAnotherBtn.className = "mt-3 text-center";
+    reportAnotherBtn.innerHTML = `
+      <button class="btn btn-primary btn-lg" onclick="resetForNewReport()">
+        <i class="bi bi-plus-circle"></i> Report Another Issue
+      </button>
+    `;
+    document.getElementById("resultSection").appendChild(reportAnotherBtn);
 
     // Scroll result into view
     document

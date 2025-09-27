@@ -119,6 +119,18 @@
             Departments
           </button>
         </li>
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="workers-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#workers"
+            type="button"
+            role="tab"
+          >
+            Workers
+          </button>
+        </li>
       </ul>
       <div
         class="tab-content border-start border-end border-bottom p-3 bg-white"
@@ -472,6 +484,108 @@
                   </thead>
                   <tbody id="deptDetailsBody"></tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Workers tab -->
+        <div class="tab-pane fade" id="workers" role="tabpanel">
+          <div class="row">
+            <div class="col-md-6">
+              <div class="card">
+                <div class="card-header">
+                  <h5 class="mb-0">Register New Worker/Engineer</h5>
+                </div>
+                <div class="card-body">
+                  <form id="workerRegistrationForm">
+                    <div class="mb-3">
+                      <label for="workerName" class="form-label">Full Name</label>
+                      <input type="text" class="form-control" id="workerName" required>
+                    </div>
+                    <div class="mb-3">
+                      <label for="workerUsername" class="form-label">Username</label>
+                      <input type="text" class="form-control" id="workerUsername" required>
+                      <div class="form-text">This will be used for login</div>
+                    </div>
+                    <div class="mb-3">
+                      <label for="workerEmail" class="form-label">Email</label>
+                      <input type="email" class="form-control" id="workerEmail" required>
+                    </div>
+                    <div class="mb-3">
+                      <label for="workerPassword" class="form-label">Password</label>
+                      <input type="password" class="form-control" id="workerPassword" required>
+                      <div class="form-text">Default password (worker can change later)</div>
+                    </div>
+                    <div class="mb-3">
+                      <label for="workerPhone" class="form-label">Phone Number</label>
+                      <input type="tel" class="form-control" id="workerPhone">
+                    </div>
+                    <div class="mb-3">
+                      <label for="workerDepartment" class="form-label">Department</label>
+                      <select class="form-select" id="workerDepartment" required>
+                        <option value="">Select Department</option>
+                        <option value="Roads & Infrastructure">Roads & Infrastructure</option>
+                        <option value="Water & Sewerage">Water & Sewerage</option>
+                        <option value="Electricity & Power">Electricity & Power</option>
+                        <option value="Waste Management">Waste Management</option>
+                        <option value="Street Lighting">Street Lighting</option>
+                        <option value="Parks & Recreation">Parks & Recreation</option>
+                        <option value="Public Safety">Public Safety</option>
+                        <option value="Building & Construction">Building & Construction</option>
+                        <option value="Transportation">Transportation</option>
+                        <option value="Environmental Services">Environmental Services</option>
+                      </select>
+                    </div>
+                    <div class="mb-3">
+                      <label for="workerSkills" class="form-label">Skills/Specializations</label>
+                      <textarea class="form-control" id="workerSkills" rows="3" placeholder="e.g., Road Repair, Pothole Filling, Traffic Management (comma-separated)"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Register Worker</button>
+                  </form>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <h5 class="mb-0">Registered Workers</h5>
+                  <button id="refreshWorkersBtn" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                  </button>
+                </div>
+                <div class="card-body">
+                  <div id="workersLoading" class="text-center d-none">
+                    <div class="spinner-border" role="status">
+                      <span class="visually-hidden">Loading...</span>
+                    </div>
+                  </div>
+                  <div id="workersEmpty" class="alert alert-info d-none">
+                    No workers registered yet.
+                  </div>
+                  <div id="workersList" class="list-group">
+                    <!-- Workers will be loaded here -->
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Worker Details Modal -->
+          <div class="modal fade" id="workerDetailsModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Worker Details</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="workerDetailsBody">
+                  <!-- Worker details will be loaded here -->
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                  <button type="button" class="btn btn-danger" id="deactivateWorkerBtn">Deactivate Worker</button>
+                </div>
               </div>
             </div>
           </div>

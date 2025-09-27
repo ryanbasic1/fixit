@@ -1,11 +1,24 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, and_, or_
+from sqlalchemy import func, and_, or_, desc
 from typing import Optional, List
 from datetime import datetime, timedelta
-from .database import get_db, Complaint, User, Reward, auto_assign_demo_reward
+from passlib.context import CryptContext
+from pydantic import BaseModel
+from .database import get_db, Complaint, User, Reward, auto_assign_demo_reward, Worker, WorkOrder
 from .routes_auth import get_current_user
 from .templates import mapping as TEMPLATE_MAPPING
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+class WorkerRegistration(BaseModel):
+    name: str
+    username: str
+    email: str
+    password: str
+    phone: Optional[str] = None
+    department: str
+    skills: Optional[List[str]] = []
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -867,3 +880,241 @@ async def reclassify_issue(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to reclassify: {e}")
+
+
+@router.get("/workers")
+async def list_workers(
+    admin: User = Depends(is_admin),
+    db: Session = Depends(get_db)
+):
+    """List all workers with their stats"""
+    workers = (
+        db.query(Worker, User)
+        .join(User, Worker.user_id == User.id)
+        .all()
+    )
+    
+    result = []
+    for worker, user in workers:
+        result.append({
+            "id": worker.id,
+            "name": worker.name,
+            "username": user.username,
+            "email": user.email,
+            "phone": worker.phone,
+            "department": worker.department,
+            "skills": worker.skills or [],
+            "active_status": worker.active_status,
+            "rating": worker.rating,
+            "completed_jobs": worker.completed_jobs,
+            "current_location": {
+                "latitude": worker.current_location_lat,
+                "longitude": worker.current_location_lng
+            }
+        })
+    
+    return {
+        "success": True,
+        "workers": result
+    }
+
+
+@router.post("/register_worker")
+async def register_worker(
+    worker_data: WorkerRegistration,
+    admin: User = Depends(is_admin),
+    db: Session = Depends(get_db)
+):
+    """Register a new worker/engineer"""
+    # Check if username or email already exists
+    existing_user = db.query(User).filter(
+        (User.username == worker_data.username) | (User.email == worker_data.email)
+    ).first()
+    
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="Username or email already exists"
+        )
+    
+    try:
+        # Create user account
+        new_user = User(
+            username=worker_data.username,
+            email=worker_data.email,
+            password_hash=pwd_context.hash(worker_data.password),
+            is_worker=True,
+            is_admin=False
+        )
+        db.add(new_user)
+        db.flush()  # Get the user ID
+        
+        # Create worker profile
+        new_worker = Worker(
+            user_id=new_user.id,
+            name=worker_data.name,
+            phone=worker_data.phone,
+            department=worker_data.department,
+            skills=worker_data.skills or [],
+            active_status=True
+        )
+        db.add(new_worker)
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": f"Worker {worker_data.name} registered successfully",
+            "worker": {
+                "id": new_worker.id,
+                "name": new_worker.name,
+                "username": new_user.username,
+                "email": new_user.email,
+                "department": new_worker.department
+            }
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to register worker: {str(e)}"
+        )
+
+
+@router.put("/toggle_worker_status/{worker_id}")
+async def toggle_worker_status(
+    worker_id: int,
+    admin: User = Depends(is_admin),
+    db: Session = Depends(get_db)
+):
+    """Toggle worker active status (activate/deactivate)"""
+    worker = db.query(Worker).filter(Worker.id == worker_id).first()
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    
+    worker.active_status = not worker.active_status
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": f"Worker {'activated' if worker.active_status else 'deactivated'}",
+        "worker": {
+            "id": worker.id,
+            "name": worker.name,
+            "active_status": worker.active_status
+        }
+    }
+
+
+@router.post("/assign_work")
+async def assign_work_to_worker(
+    complaint_id: int,
+    worker_id: int,
+    priority: str = "Medium",
+    notes: str = "",
+    admin: User = Depends(is_admin),
+    db: Session = Depends(get_db)
+):
+    """Assign a complaint to a worker"""
+    complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+    
+    worker = db.query(Worker).filter(Worker.id == worker_id).first()
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    
+    # Check if work order already exists
+    existing_order = db.query(WorkOrder).filter(
+        WorkOrder.complaint_id == complaint_id
+    ).first()
+    
+    if existing_order:
+        # Update existing work order
+        existing_order.worker_id = worker_id
+        existing_order.priority = priority
+        existing_order.notes = notes
+        existing_order.assigned_by = admin.id
+        existing_order.updated_at = datetime.utcnow()
+        work_order = existing_order
+    else:
+        # Create new work order
+        work_order = WorkOrder(
+            complaint_id=complaint_id,
+            worker_id=worker_id,
+            assigned_by=admin.id,
+            priority=priority,
+            notes=notes,
+            status="assigned"
+        )
+        db.add(work_order)
+    
+    # Update complaint status
+    complaint.status = "in_progress"
+    complaint.updated_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(work_order)
+    
+    return {
+        "success": True,
+        "message": f"Complaint #{complaint_id} assigned to worker {worker.name}",
+        "work_order": {
+            "id": work_order.id,
+            "status": work_order.status,
+            "priority": work_order.priority,
+            "assigned_at": work_order.assigned_at.isoformat()
+        }
+    }
+
+
+@router.get("/work_orders")
+async def list_work_orders(
+    status: Optional[str] = None,
+    worker_id: Optional[int] = None,
+    admin: User = Depends(is_admin),
+    db: Session = Depends(get_db)
+):
+    """List work orders with filtering options"""
+    query = (
+        db.query(WorkOrder, Complaint, Worker, User.username)
+        .join(Complaint, WorkOrder.complaint_id == Complaint.id)
+        .outerjoin(Worker, WorkOrder.worker_id == Worker.id)
+        .outerjoin(User, Complaint.user_id == User.id)
+    )
+    
+    if status:
+        query = query.filter(WorkOrder.status == status)
+    if worker_id:
+        query = query.filter(WorkOrder.worker_id == worker_id)
+    
+    work_orders = query.order_by(desc(WorkOrder.created_at)).all()
+    
+    result = []
+    for work_order, complaint, worker, reporter_username in work_orders:
+        result.append({
+            "work_order_id": work_order.id,
+            "status": work_order.status,
+            "priority": work_order.priority,
+            "assigned_at": work_order.assigned_at.isoformat(),
+            "started_at": work_order.started_at.isoformat() if work_order.started_at else None,
+            "completed_at": work_order.completed_at.isoformat() if work_order.completed_at else None,
+            "notes": work_order.notes,
+            "complaint": {
+                "id": complaint.id,
+                "category": complaint.category,
+                "subcategory": complaint.subcategory,
+                "description": complaint.description,
+                "address": complaint.address,
+                "reporter": reporter_username
+            },
+            "worker": {
+                "id": worker.id if worker else None,
+                "name": worker.name if worker else "Unassigned"
+            }
+        })
+    
+    return {
+        "success": True,
+        "work_orders": result
+    }

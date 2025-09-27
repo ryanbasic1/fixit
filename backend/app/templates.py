@@ -4,7 +4,7 @@ from datetime import datetime
 # Full mapping of issues
 # ------------------------
 mapping = {
-    "Roads & Transport": {
+    "Roads & Infrastructure": {
         "Potholes": {
             "category": "Road Infrastructure Issue",
             "description": "Detected pothole on the road. May cause accidents and traffic delays.",
@@ -26,7 +26,7 @@ mapping = {
             "priority": "High"
         }
     },
-    "Street Lighting & Electricity": {
+    "Electricity & Power": {
         "Streetlight not working": {
             "category": "Public Lighting Issue",
             "description": "Streetlight is not functional. Area becomes dark and unsafe at night.",
@@ -43,7 +43,7 @@ mapping = {
             "priority": "Critical"
         }
     },
-    "Water Supply": {
+    "Water & Sewerage": {
         "Water leakage": {
             "category": "Water Infrastructure Issue",
             "description": "Water pipeline is leaking. Clean water is being wasted and road may get slippery.",

@@ -60,3 +60,60 @@ button:hover {
     transform: translateY(0);
   }
 }
+
+/* Worker Dashboard Styles */
+.worker-dashboard {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  min-height: 100vh;
+}
+
+.hover-shadow {
+  transition: all 0.3s ease;
+}
+
+.hover-shadow:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+}
+
+.status-card {
+  transition: all 0.3s ease;
+  border: none !important;
+}
+
+.status-card:hover {
+  transform: scale(1.02);
+}
+
+.assignment-card {
+  transition: all 0.3s ease;
+  border: none !important;
+}
+
+.assignment-card:hover {
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.badge {
+  font-weight: 500;
+}
+
+.navbar-brand {
+  font-weight: 700;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .container-fluid {
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+
+  .card-body {
+    padding: 1rem !important;
+  }
+
+  .row.g-3 > * {
+    padding: 0.5rem;
+  }
+}

@@ -365,17 +365,42 @@ async function login() {
       if (typeof data.is_admin !== "undefined") {
         localStorage.setItem("is_admin", data.is_admin ? "1" : "0");
       }
+      if (typeof data.is_worker !== "undefined") {
+        localStorage.setItem("is_worker", data.is_worker ? "1" : "0");
+      }
       // Mark session active (prevents auto-logout within the same tab session)
       try {
         sessionStorage.setItem("sessionActive", "1");
       } catch (_) {}
       hideBsModal("loginModal");
 
+      // Handle worker-required redirect intent (from Worker Login link)
+      const requireWorker = sessionStorage.getItem("requireWorker") === "1";
       // Handle admin-required redirect intent (from Admin Login link)
       const requireAdmin = sessionStorage.getItem("requireAdmin") === "1";
       const postLoginRedirect = sessionStorage.getItem("postLoginRedirect");
 
-      if (requireAdmin) {
+      if (requireWorker) {
+        // Clear flags regardless
+        sessionStorage.removeItem("requireWorker");
+        sessionStorage.removeItem("postLoginRedirect");
+        if (data.is_worker) {
+          // Go straight to worker dashboard
+          window.location.href = postLoginRedirect || "worker.html";
+          return; // Stop further UI work on this page
+        } else {
+          // Inform user that worker access is required
+          const alertDiv = document.createElement("div");
+          alertDiv.className = "alert alert-danger alert-dismissible fade show";
+          alertDiv.innerHTML = `
+            <i class="bi bi-tools"></i> Worker access required. You are logged in as a regular user.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          `;
+          const container = document.getElementById("alertContainer");
+          (container || document.body).appendChild(alertDiv);
+          setTimeout(() => alertDiv.remove(), 5000);
+        }
+      } else if (requireAdmin) {
         // Clear flags regardless
         sessionStorage.removeItem("requireAdmin");
         sessionStorage.removeItem("postLoginRedirect");
@@ -401,6 +426,11 @@ async function login() {
         return;
       }
 
+      // If this is a worker and no specific redirect is requested, take them to the Worker dashboard by default
+      if (data.is_worker) {
+        window.location.href = "worker.html";
+        return;
+      }
       // If this is an admin and no specific redirect is requested, take them to the Admin dashboard by default
       if (data.is_admin) {
         window.location.href = "admin.html";
@@ -445,9 +475,11 @@ function logout() {
   token = null;
   try {
     localStorage.removeItem("is_admin");
+    localStorage.removeItem("is_worker");
     sessionStorage.removeItem("sessionActive");
     sessionStorage.removeItem("postLoginRedirect");
     sessionStorage.removeItem("requireAdmin");
+    sessionStorage.removeItem("requireWorker");
   } catch (_) {}
   setupUI();
 
@@ -1210,6 +1242,35 @@ function userLoginFlow() {
   }
   sessionStorage.setItem("postLoginRedirect", "community.html");
   sessionStorage.removeItem("requireAdmin");
+  showLoginModal();
+}
+
+// Worker Login flow helper: opens login (or redirects if already worker)
+function workerLoginFlow() {
+  const isWorker = localStorage.getItem("is_worker") === "1";
+  if (token && isWorker) {
+    // Already a worker - go to dashboard
+    window.location.href = "worker.html";
+    return;
+  }
+
+  // Set intent to land on worker page after successful worker auth
+  sessionStorage.setItem("postLoginRedirect", "worker.html");
+  sessionStorage.setItem("requireWorker", "1");
+
+  // If currently logged in but not worker, inform user they need worker credentials
+  if (token && !isWorker) {
+    const alertDiv = document.createElement("div");
+    alertDiv.className = "alert alert-info alert-dismissible fade show";
+    alertDiv.innerHTML = `
+      <i class="bi bi-info-circle"></i> Please sign in with a worker account to continue.
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    const container = document.getElementById("alertContainer");
+    (container || document.body).appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 4000);
+  }
+
   showLoginModal();
 }
 
