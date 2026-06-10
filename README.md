@@ -194,7 +194,7 @@ python app.py
 
 Machine Learning | Artificial Intelligence | Full Stack Development
 
-GitHub: https://github.com/ryanbasic1
+GitHub: https://github.com/ryanbasic1/fixit
 
 ---
 
